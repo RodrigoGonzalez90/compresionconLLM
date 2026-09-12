@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meshstatic v2</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#222536;--border:#2e3245;
+  --text:#e8eaf0;--muted:#7880a0;--blue:#4f8ef7;--green:#3ecf8e;
+  --amber:#f5a623;--red:#e05252;--purple:#a78bfa;--lora:#f97316;
+  --radius:8px;--font:'SF Mono','Fira Code',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;height:100dvh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+header{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;min-height:48px;}
+.hamburger{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:4px 6px;border-radius:4px;display:none;flex-shrink:0;}
+.hamburger:hover{background:var(--surface2);color:var(--text);}
+.logo{font-size:15px;font-weight:700;letter-spacing:-.3px;white-space:nowrap;}
+.logo span{color:var(--blue);}
+.badge{background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:3px 10px;font-size:11px;font-family:var(--font);color:var(--muted);white-space:nowrap;}
+.enc-badge{background:#1a2a1a;border:1px solid #2e4a2e;border-radius:99px;padding:3px 10px;font-size:11px;color:var(--green);white-space:nowrap;}
+.spacer{flex:1;}
+.ws-dot{width:8px;height:8px;border-radius:50%;background:var(--red);transition:background .3s;flex-shrink:0;}
+.ws-dot.on{background:var(--green);}
+
+.lora-chip{display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:11px;font-family:var(--font);border:1px solid var(--border);cursor:pointer;user-select:none;transition:border-color .2s;white-space:nowrap;}
+.lora-chip:hover{border-color:var(--lora);}
+.lora-chip .ldot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background .3s;flex-shrink:0;}
+.lora-chip.ok .ldot{background:var(--lora);}
+.lora-chip.err .ldot{background:var(--red);}
+.lora-lbl{color:var(--muted);}
+.lora-chip.ok .lora-lbl{color:var(--lora);}
+
+/* ── Layout principal ────────────────────────────────────────────────────── */
+.main{display:grid;grid-template-columns:220px 1fr;flex:1;overflow:hidden;min-height:0;}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+aside{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:var(--surface);transition:transform .25s ease;}
+.aside-head{padding:10px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:6px;flex-shrink:0;}
+.aside-head-btns{display:flex;gap:2px;}
+.btn-icon{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px 6px;border-radius:4px;flex-shrink:0;}
+.btn-icon:hover{background:var(--surface2);color:var(--text);}
+.canal-list{flex:1;overflow-y:auto;padding:6px;}
+.canal-item{display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:var(--radius);cursor:pointer;margin-bottom:2px;border:1px solid transparent;position:relative;}
+.canal-item:hover{background:var(--surface2);}
+.canal-item.active{background:var(--surface2);border-color:var(--border);}
+.canal-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;margin-top:4px;}
+.canal-dot.lora{background:var(--lora);}
+.canal-info{flex:1;min-width:0;}
+.canal-name{font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.canal-url{font-size:10px;color:var(--muted);font-family:var(--font);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.canal-tipo-tag{font-size:9px;padding:0 5px;border-radius:99px;font-family:var(--font);}
+.ct-http{background:#1a2035;color:var(--blue);}
+.ct-lora{background:#2a1a0a;color:var(--lora);}
+.canal-actions{display:flex;gap:1px;flex-shrink:0;opacity:0;transition:opacity .15s;}
+.canal-item:hover .canal-actions{opacity:1;}
+.canal-act{background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:3px 5px;border-radius:4px;line-height:1;}
+.canal-act:hover{background:var(--surface);color:var(--text);}
+.canal-act.del:hover{color:var(--red);}
+.no-canales{padding:20px 10px;text-align:center;color:var(--muted);font-size:12px;line-height:1.7;}
+.new-canal-hint{padding:10px 12px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);text-align:center;flex-shrink:0;}
+
+/* Backdrop para mobile */
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:49;}
+.sidebar-backdrop.show{display:block;}
+
+/* ── Chat ────────────────────────────────────────────────────────────────── */
+.chat-area{display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.chat-header{padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted);flex-shrink:0;display:flex;align-items:center;gap:8px;min-height:44px;}
+.chat-header strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.chat-header-url{font-family:var(--font);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.btn-clear-hist{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);cursor:pointer;font-size:10px;padding:3px 8px;white-space:nowrap;flex-shrink:0;}
+.btn-clear-hist:hover{border-color:var(--red);color:var(--red);}
+.messages{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-height:0;}
+
+.msg-wrap{display:flex;position:relative;}
+.msg-wrap.out{justify-content:flex-end;}
+.msg-wrap.in{justify-content:flex-start;}
+.bubble{max-width:74%;border-radius:10px;padding:9px 12px;position:relative;}
+.msg-wrap.out .bubble{background:var(--surface2);border:1px solid var(--border);border-bottom-right-radius:2px;}
+.msg-wrap.in .bubble{background:#1a2535;border:1px solid #2a3a50;border-bottom-left-radius:2px;}
+.bubble-top{display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;}
+.nodo-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
+.msg-wrap.out .nodo-lbl{color:var(--blue);}
+.msg-wrap.in .nodo-lbl{color:var(--green);}
+.bubble-text{font-size:13px;color:var(--text);line-height:1.5;word-break:break-word;}
+.bubble-recon{font-size:12px;color:var(--green);margin-top:6px;padding-top:6px;border-top:1px solid var(--border);word-break:break-word;}
+.bubble-recon::before{content:"↩ ";opacity:.5;}
+.bubble-meta{display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap;}
+.tag{font-size:10px;padding:1px 6px;border-radius:99px;font-family:var(--font);}
+.t-bytes{background:#1e2a1e;color:var(--green);}
+.t-lossless{background:#1a1e3a;color:var(--purple);}
+.t-raw{background:#2a2215;color:var(--amber);}
+.t-lora{background:#2a1500;color:var(--lora);}
+.t-ratio-pos{background:#1e2a20;color:#6ee7b7;}
+.t-ratio-neg{background:#2a1e1e;color:var(--red);}
+.t-ratio-zero{background:var(--surface2);color:var(--muted);}
+.t-tok{background:#1e1a2e;color:#c4b5fd;}
+.epill{font-size:10px;padding:1px 7px;border-radius:99px;}
+.e-enviando{background:#1a2035;color:var(--blue);}
+.e-confirmado{background:#1a2a1a;color:var(--green);}
+.e-transmitido{background:#1e1e2e;color:var(--muted);}
+.e-error_tx{background:#2a1515;color:var(--red);}
+.e-error_rx{background:#2a1515;color:var(--red);}
+.e-recibido{background:#1a2a1e;color:var(--green);}
+
+.msg-del{position:absolute;top:6px;right:6px;background:none;border:none;color:transparent;cursor:pointer;font-size:11px;padding:2px 5px;border-radius:4px;transition:all .15s;line-height:1;}
+.msg-wrap:hover .msg-del{color:var(--muted);}
+.msg-del:hover{color:var(--red)!important;background:var(--surface2);}
+
+/* ── Composer ─────────────────────────────────────────────────────────────── */
+.composer{border-top:1px solid var(--border);padding:10px 14px;flex-shrink:0;}
+.composer-row{display:flex;gap:8px;align-items:flex-end;}
+textarea{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;color:var(--text);font-size:13px;font-family:inherit;resize:none;outline:none;min-height:42px;max-height:120px;line-height:1.5;}
+textarea:focus{border-color:var(--blue);}
+.btn-send{background:var(--blue);border:none;border-radius:var(--radius);padding:9px 18px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;height:42px;flex-shrink:0;}
+.btn-send:hover{opacity:.9;}
+.btn-send:disabled{opacity:.4;cursor:not-allowed;}
+.composer-hint{font-size:10px;color:var(--muted);margin-top:5px;display:flex;gap:8px;flex-wrap:wrap;}
+.hint-sep{opacity:.3;}
+.spell-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;min-height:0;}
+.spell-chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid #f59e0b;border-radius:10px;padding:2px 8px 2px 10px;font-size:11px;color:var(--text);animation:chipIn .15s ease;}
+@keyframes chipIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+.chip-label{opacity:.6;font-size:10px;}
+.chip-word{cursor:pointer;font-weight:600;color:#f59e0b;text-decoration:underline dotted;}
+.chip-word:hover{color:#d97706;}
+.chip-x{cursor:pointer;opacity:.5;font-size:13px;line-height:1;padding:0 2px;}
+.chip-x:hover{opacity:1;}
+
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);gap:8px;}
+.empty-icon{font-size:36px;opacity:.25;}
+
+/* ── Modales ────────────────────────────────────────────────────────────── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100;align-items:center;justify-content:center;padding:16px;}
+.overlay.show{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;width:100%;max-width:400px;max-height:90dvh;overflow-y:auto;}
+.modal.wide{max-width:480px;}
+.modal h3{font-size:14px;font-weight:700;margin-bottom:16px;}
+.fg{margin-bottom:12px;}
+.fg label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+.fg input,.fg select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:12px;outline:none;font-family:inherit;}
+.fg input:focus,.fg select:focus{border-color:var(--blue);}
+.fg select option{background:var(--surface);}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap;}
+.btn-cancel{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 14px;color:var(--muted);cursor:pointer;font-size:12px;}
+.btn-ok{background:var(--blue);border:none;border-radius:6px;padding:7px 16px;color:#fff;cursor:pointer;font-size:12px;font-weight:600;}
+.btn-danger{background:var(--red);border:none;border-radius:6px;padding:7px 16px;color:#fff;cursor:pointer;font-size:12px;font-weight:600;}
+.btn-lora{background:var(--lora);border:none;border-radius:6px;padding:7px 16px;color:#fff;cursor:pointer;font-size:12px;font-weight:600;}
+
+.tipo-toggle{display:flex;gap:6px;margin-bottom:14px;}
+.tipo-btn{flex:1;padding:7px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:12px;cursor:pointer;text-align:center;transition:all .15s;}
+.tipo-btn.active{border-color:var(--blue);color:var(--text);background:#1a2035;}
+.tipo-btn.active.lora-active{border-color:var(--lora);background:#2a1500;color:var(--lora);}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.toggle-row label{font-size:12px;color:var(--text);}
+.toggle{position:relative;width:40px;height:22px;}
+.toggle input{opacity:0;width:0;height:0;}
+.slider{position:absolute;cursor:pointer;inset:0;background:var(--surface2);border:1px solid var(--border);border-radius:11px;transition:.2s;}
+.slider:before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;background:var(--muted);border-radius:50%;transition:.2s;}
+.toggle input:checked + .slider{background:#2a1500;border-color:var(--lora);}
+.toggle input:checked + .slider:before{transform:translateX(18px);background:var(--lora);}
+
+.lora-status-box{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-top:4px;font-size:11px;font-family:var(--font);}
+.lora-status-row{display:flex;justify-content:space-between;margin-bottom:4px;}
+.lora-status-row:last-child{margin-bottom:0;}
+.lora-status-key{color:var(--muted);}
+.lora-status-val{color:var(--text);}
+.lora-status-val.ok{color:var(--green);}
+.lora-status-val.err{color:var(--red);}
+.divider{border:none;border-top:1px solid var(--border);margin:14px 0;}
+
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+@keyframes spin{to{transform:rotate(360deg);}}
+.spin-icon{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;}
+
+/* ── Toast ───────────────────────────────────────────────────────────────── */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 16px;font-size:12px;z-index:300;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap;max-width:calc(100vw - 32px);text-align:center;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.err{border-color:var(--red);color:var(--red);}
+.toast.ok{border-color:var(--green);color:var(--green);}
+
+/* Send button vacío */
+.btn-send:disabled:not(.sending){background:var(--surface2);border:1px solid var(--border);color:var(--muted);}
+.btn-send.sending{opacity:1!important;cursor:wait;}
+
+/* Loading en messages */
+.loading-spin{font-size:22px;animation:spin .8s linear infinite;opacity:.4;}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width:640px){
+  .hamburger{display:flex;}
+  header .badge:not(#nodeBadge){display:none;}
+  .enc-badge{display:none;}
+  .hint-keyboard{display:none;}
+  .main{grid-template-columns:1fr;}
+  aside{
+    position:fixed;top:0;left:0;bottom:0;
+    width:min(300px,85vw);
+    z-index:50;
+    transform:translateX(-110%);
+    border-right:1px solid var(--border);
+  }
+  aside.open{transform:translateX(0);}
+  .canal-actions{opacity:1;}
+  .msg-del{color:var(--muted);}
+  .bubble{max-width:90%;}
+  .messages{padding:10px;}
+  .composer{padding:8px 10px;}
+}
+@media (min-width:641px){
+  .sidebar-backdrop{display:none!important;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <button class="hamburger" id="hamburger" onclick="toggleSidebar()" title="Canales">☰</button>
+  <div class="logo">Mesh<span>static</span></div>
+  <div class="badge" id="nodeBadge">…</div>
+  <div class="enc-badge" id="encBadge">lossless</div>
+  <div class="spacer"></div>
+  <div class="lora-chip" id="loraChip" onclick="abrirLoraModal()" title="Configurar LoRa">
+    <div class="ldot"></div>
+    <span class="lora-lbl">LoRa</span>
+  </div>
+  <div class="ws-dot" id="wsDot"></div>
+</header>
+
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+<div class="main">
+
+  <aside id="sidebar">
+    <div class="aside-head">
+      Canales
+      <div class="aside-head-btns">
+        <button class="btn-icon" onclick="abrirModal()" title="Nuevo canal">＋</button>
+      </div>
+    </div>
+    <div class="canal-list" id="canalList">
+      <div class="no-canales">Sin canales todavía.<br>Usá ＋ para agregar uno.</div>
+    </div>
+    <div class="new-canal-hint">＋ para conectarte a otro nodo</div>
+  </aside>
+
+  <div class="chat-area">
+    <div class="chat-header">
+      <strong id="canalNombre" style="color:var(--muted)">Seleccioná un canal</strong>
+      <div class="spacer"></div>
+      <span class="chat-header-url" id="canalUrl"></span>
+      <button class="btn-clear-hist" onclick="limpiarHistorial()" title="Borrar todos los mensajes">Limpiar</button>
+    </div>
+    <div class="messages" id="messages">
+      <div class="empty">
+        <div class="empty-icon">📡</div>
+        <div>Sin mensajes aún</div>
+      </div>
+    </div>
+    <div class="composer">
+      <div class="composer-row">
+        <textarea id="txtMsg" placeholder="Escribí tu mensaje…"
+          spellcheck="true" lang="es"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviar();}"
+          oninput="onTxtInput(this)"></textarea>
+        <button class="btn-send" id="btnSend" onclick="enviar()" disabled>Enviar →</button>
+      </div>
+      <div class="spell-chips" id="spellChips"></div>
+      <div class="composer-hint">
+        <span id="hintCanal">Canal: ninguno</span>
+        <span class="hint-sep">|</span>
+        <span id="hintEnc">Encoding: lossless</span>
+        <span class="hint-keyboard"><span class="hint-sep">|</span>Enter envía · Shift+Enter nueva línea</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: nuevo canal ──────────────────────────────────────────────── -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3>📡 Nuevo canal</h3>
+    <div class="tipo-toggle">
+      <div class="tipo-btn active" id="tipoBtnHttp" onclick="setTipo('http')">🌐 HTTP</div>
+      <div class="tipo-btn" id="tipoBtnLora" onclick="setTipo('lora')">📻 LoRa</div>
+    </div>
+    <div class="fg">
+      <label>Nombre del canal</label>
+      <input id="mNombre" placeholder="ej: nodo-beta, campo-norte" />
+    </div>
+    <div class="fg">
+      <label id="lblPeerUrl">URL del nodo destino</label>
+      <input id="mUrl" placeholder="ej: http://localhost:8002" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-ok" onclick="crearCanal()">Crear</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: editar canal ─────────────────────────────────────────────── -->
+<div class="overlay" id="editOverlay">
+  <div class="modal">
+    <h3>✏️ Editar canal</h3>
+    <input type="hidden" id="editCanalId" />
+    <div class="fg">
+      <label>Nombre</label>
+      <input id="editNombre" placeholder="Nombre del canal" />
+    </div>
+    <div class="fg">
+      <label id="editUrlLabel">URL / Dirección</label>
+      <input id="editUrl" placeholder="" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="cerrarEditModal()">Cancelar</button>
+      <button class="btn-ok" onclick="guardarEdicion()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: configuración LoRa ──────────────────────────────────────── -->
+<div class="overlay" id="loraOverlay">
+  <div class="modal wide">
+    <h3>📻 Configuración LoRa</h3>
+
+    <div class="toggle-row">
+      <label>Habilitar transporte LoRa</label>
+      <label class="toggle">
+        <input type="checkbox" id="loraEnabled">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="fg">
+      <label>Puerto serie</label>
+      <div style="display:flex;gap:6px;">
+        <select id="loraPort" style="flex:1;"><option value="">Seleccionar…</option></select>
+        <button class="btn-cancel" onclick="cargarPuertos()" style="white-space:nowrap;padding:7px 10px;">↺</button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="fg">
+        <label>Baudrate</label>
+        <select id="loraBaud">
+          <option value="9600">9600</option>
+          <option value="19200">19200</option>
+          <option value="38400">38400</option>
+          <option value="57600">57600</option>
+          <option value="115200" selected>115200</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Modo</label>
+        <select id="loraModo" onchange="onLoraModoChange()">
+          <option value="at_rylr">AT serial (RYLR896)</option>
+          <option value="transparent">Serial transparente</option>
+          <option value="tcp">TCP/WiFi (XIAO ESP32S3)</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Spreading Factor (SF)</label>
+        <select id="loraSF">
+          <option value="7">SF7 — rápido</option>
+          <option value="8">SF8</option>
+          <option value="9" selected>SF9 — equilibrio</option>
+          <option value="10">SF10</option>
+          <option value="11">SF11</option>
+          <option value="12">SF12 — largo alcance</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Ancho de banda</label>
+        <select id="loraBW">
+          <option value="7" selected>125 kHz</option>
+          <option value="8">250 kHz</option>
+          <option value="9">500 kHz</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Potencia TX (dBm)</label>
+        <input type="number" id="loraPow" min="0" max="20" value="14" />
+      </div>
+      <div class="fg">
+        <label>Max bytes / paquete</label>
+        <input type="number" id="loraChunk" min="20" max="240" value="120" />
+      </div>
+      <div class="fg">
+        <label>Dirección de este nodo</label>
+        <input type="number" id="loraAddr" min="0" max="65535" value="1" />
+      </div>
+      <div class="fg">
+        <label>Network ID</label>
+        <input type="number" id="loraNetId" min="0" max="255" value="18" />
+      </div>
+    </div>
+
+    <!-- Campos TCP (visibles solo en modo TCP) -->
+    <div id="tcpFields" style="display:none;">
+      <hr class="divider">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">
+        Gateway WiFi (XIAO ESP32S3)
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;">
+        <div class="fg" style="margin-bottom:0;">
+          <label>IP del gateway</label>
+          <input id="loraTcpHost" placeholder="ej: 192.168.1.50" />
+        </div>
+        <div class="fg" style="margin-bottom:0;">
+          <label>Puerto</label>
+          <input type="number" id="loraTcpPort" min="1" max="65535" value="9000" style="width:90px;" />
+        </div>
+      </div>
+      <button onclick="abrirFirmwareModal()" style="width:100%;margin-top:12px;padding:9px;border-radius:6px;border:1px dashed var(--lora);background:rgba(249,115,22,.07);color:var(--lora);cursor:pointer;font-size:12px;font-weight:600;">
+        ↓ Descargar firmware para ESP32S3
+      </button>
+    </div>
+
+    <hr class="divider">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Estado actual</div>
+    <div class="lora-status-box" id="loraStatusBox">
+      <div class="lora-status-row"><span class="lora-status-key">Conexión</span><span class="lora-status-val" id="stConn">—</span></div>
+      <div class="lora-status-row"><span class="lora-status-key">Puerto</span><span class="lora-status-val" id="stPort">—</span></div>
+      <div class="lora-status-row"><span class="lora-status-key">RSSI último</span><span class="lora-status-val" id="stRssi">—</span></div>
+      <div class="lora-status-row"><span class="lora-status-key">SNR último</span><span class="lora-status-val" id="stSnr">—</span></div>
+      <div class="lora-status-row"><span class="lora-status-key">Error</span><span class="lora-status-val" id="stErr">—</span></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="cerrarLoraModal()">Cancelar</button>
+      <button class="btn-lora" onclick="guardarLoraConfig()">Guardar y conectar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: descarga firmware ESP32S3 ───────────────────────────────── -->
+<div class="overlay" id="firmwareOverlay">
+  <div class="modal">
+    <h3>📥 Firmware para XIAO ESP32S3</h3>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6;">
+      El firmware se genera con tu configuración LoRa actual.<br>
+      Ingresá las credenciales WiFi — quedan grabadas en el ESP32S3.
+    </p>
+    <div class="fg">
+      <label>SSID (nombre de la red WiFi)</label>
+      <input id="fwSsid" placeholder="MiRedWiFi" autocomplete="off" />
+    </div>
+    <div class="fg">
+      <label>Contraseña WiFi</label>
+      <input id="fwPass" type="password" placeholder="••••••••" autocomplete="new-password" />
+      <div style="margin-top:5px;">
+        <label style="font-size:10px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer;">
+          <input type="checkbox" onchange="document.getElementById('fwPass').type=this.checked?'text':'password'">
+          Mostrar contraseña
+        </label>
+      </div>
+    </div>
+    <div class="lora-status-box" style="margin-bottom:4px;">
+      <div class="lora-status-row"><span class="lora-status-key">Solo 2.4 GHz</span><span class="lora-status-val warn">ESP32S3 no soporta 5 GHz</span></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="cerrarFirmwareModal()">Cancelar</button>
+      <button class="btn-ok" onclick="descargarFirmware()">Descargar .ino</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let nodeId = "", canalActivo = null, ws = null, tipoCanal = "http";
+let canales = [], enviando = false;
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  const box = document.getElementById("messages");
+  box.innerHTML = '<div class="empty"><div class="loading-spin">⟳</div><div>Cargando…</div></div>';
+
+  const st = await fetchJSON("/api/estado");
+  if (st) {
+    nodeId = st.node_id;
+    document.getElementById("nodeBadge").textContent = nodeId;
+    document.getElementById("encBadge").textContent = st.backend || "lossless";
+    document.getElementById("hintEnc").textContent = "Encoding: " + (st.backend || "lossless");
+  }
+  await cargarCanales();
+  const msgs = await fetchJSON("/api/mensajes");
+  box.innerHTML = "";
+  if (msgs?.length) {
+    [...msgs].reverse().forEach(m => renderMsg(m));
+  } else {
+    box.innerHTML = '<div class="empty"><div class="empty-icon">📡</div><div>Sin mensajes aún</div></div>';
+  }
+  conectarWS();
+  actualizarLoraChip();
+}
+
+async function fetchJSON(url, opts) {
+  try { const r = await fetch(url, opts); return r.ok ? r.json() : null; }
+  catch { return null; }
+}
+
+// ── Mobile sidebar ─────────────────────────────────────────────────────────
+function toggleSidebar() {
+  const s = document.getElementById("sidebar");
+  const b = document.getElementById("sidebarBackdrop");
+  s.classList.toggle("open");
+  b.classList.toggle("show");
+}
+function closeSidebar() {
+  document.getElementById("sidebar").classList.remove("open");
+  document.getElementById("sidebarBackdrop").classList.remove("show");
+}
+
+// ── Canales ────────────────────────────────────────────────────────────────
+async function cargarCanales() {
+  canales = await fetchJSON("/api/canales") || [];
+  pintarCanales();
+  if (canales.length && !canalActivo) selCanal(canales[0]);
+}
+
+function pintarCanales() {
+  const el = document.getElementById("canalList");
+  if (!canales.length) {
+    el.innerHTML = '<div class="no-canales">Sin canales todavía.<br>Usá ＋ para agregar uno.</div>';
+    return;
+  }
+  el.innerHTML = canales.map(c => {
+    const esLora = c.tipo === "lora";
+    const dotCls = esLora ? "canal-dot lora" : "canal-dot";
+    const tipTag = esLora
+      ? `<span class="canal-tipo-tag ct-lora">LoRa:${esc(c.peer_url)}</span>`
+      : `<span class="canal-tipo-tag ct-http">HTTP</span>`;
+    const urlStr = esLora ? "" : esc(c.peer_url);
+    return `
+    <div class="canal-item${canalActivo?.id===c.id?' active':''}" onclick='selCanalById("${c.id}")'>
+      <div class="${dotCls}"></div>
+      <div class="canal-info">
+        <div class="canal-name">${esc(c.nombre)}</div>
+        <div class="canal-url" style="display:flex;align-items:center;gap:4px;margin-top:2px;">
+          ${tipTag}<span>${urlStr}</span>
+        </div>
+      </div>
+      <div class="canal-actions" onclick="event.stopPropagation()">
+        <button class="canal-act" onclick="abrirEditModal('${c.id}')" title="Editar">✏</button>
+        <button class="canal-act del" onclick="delCanal('${c.id}')" title="Eliminar">✕</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function selCanalById(id) {
+  selCanal(canales.find(c => c.id === id));
+  if (window.innerWidth <= 640) closeSidebar();
+}
+function selCanal(c) {
+  if (!c) return;
+  canalActivo = c;
+  const esLora = c.tipo === "lora";
+  document.getElementById("canalNombre").textContent = c.nombre;
+  document.getElementById("canalNombre").style.color = "var(--text)";
+  document.getElementById("canalUrl").textContent = esLora ? `LoRa → addr ${c.peer_url}` : c.peer_url;
+  document.getElementById("hintCanal").textContent = `Canal: ${c.nombre} (${esLora ? "LoRa" : "HTTP"})`;
+  document.getElementById("txtMsg").placeholder = `Mensaje para ${c.nombre}…`;
+  pintarCanales();
+}
+
+// ── Modal nuevo canal ──────────────────────────────────────────────────────
+function setTipo(t) {
+  tipoCanal = t;
+  document.getElementById("tipoBtnHttp").className = "tipo-btn" + (t==="http"?" active":"");
+  document.getElementById("tipoBtnLora").className = "tipo-btn" + (t==="lora"?" active lora-active":"");
+  const lbl = document.getElementById("lblPeerUrl");
+  const inp = document.getElementById("mUrl");
+  if (t === "lora") {
+    lbl.textContent = "Dirección LoRa del nodo destino";
+    inp.placeholder = "ej: 2";
+    inp.type = "number";
+  } else {
+    lbl.textContent = "URL del nodo destino";
+    inp.placeholder = "ej: http://localhost:8002";
+    inp.type = "text";
+  }
+}
+
+function abrirModal() {
+  setTipo("http");
+  document.getElementById("overlay").classList.add("show");
+  setTimeout(() => document.getElementById("mNombre").focus(), 50);
+}
+function cerrarModal() {
+  document.getElementById("overlay").classList.remove("show");
+  document.getElementById("mNombre").value = "";
+  document.getElementById("mUrl").value = "";
+}
+
+async function crearCanal() {
+  const nombre   = document.getElementById("mNombre").value.trim();
+  const peer_url = document.getElementById("mUrl").value.trim();
+  if (!nombre || !peer_url) return;
+  const c = await fetchJSON("/api/canales", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({nombre, peer_url, tipo: tipoCanal})
+  });
+  if (c) { canales.push(c); cerrarModal(); selCanal(c); pintarCanales(); }
+}
+
+async function delCanal(id) {
+  await fetch(`/api/canales/${id}`, {method:"DELETE"});
+  canales = canales.filter(c => c.id !== id);
+  if (canalActivo?.id === id) {
+    canalActivo = null;
+    document.getElementById("canalNombre").textContent = "Seleccioná un canal";
+    document.getElementById("canalNombre").style.color = "var(--muted)";
+    document.getElementById("canalUrl").textContent = "";
+    document.getElementById("hintCanal").textContent = "Canal: ninguno";
+  }
+  pintarCanales();
+}
+
+// ── Modal editar canal ─────────────────────────────────────────────────────
+function abrirEditModal(id) {
+  const c = canales.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById("editCanalId").value   = c.id;
+  document.getElementById("editNombre").value    = c.nombre;
+  document.getElementById("editUrl").value       = c.peer_url;
+  document.getElementById("editUrlLabel").textContent =
+    c.tipo === "lora" ? "Dirección LoRa" : "URL del nodo destino";
+  document.getElementById("editOverlay").classList.add("show");
+  setTimeout(() => document.getElementById("editNombre").focus(), 50);
+}
+function cerrarEditModal() {
+  document.getElementById("editOverlay").classList.remove("show");
+}
+async function guardarEdicion() {
+  const id       = document.getElementById("editCanalId").value;
+  const nombre   = document.getElementById("editNombre").value.trim();
+  const peer_url = document.getElementById("editUrl").value.trim();
+  if (!nombre || !peer_url) return;
+  const updated = await fetchJSON(`/api/canales/${id}`, {
+    method:"PATCH",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({nombre, peer_url})
+  });
+  if (updated) {
+    const idx = canales.findIndex(c => c.id === id);
+    if (idx >= 0) canales[idx] = updated;
+    if (canalActivo?.id === id) selCanal(updated);
+    pintarCanales();
+    cerrarEditModal();
+  }
+}
+
+// ── Spell check ───────────────────────────────────────────────────────────
+const _spell = {
+  timer:   null,
+  pending: false,
+  chips:   [],   // [{original, corrected, id}]
+  seq:     0,
+};
+
+function _spellBtnReady() {
+  const btn = document.getElementById("btnSend");
+  if (btn.classList.contains("sending")) return;
+  const ta = document.getElementById("txtMsg");
+  btn.disabled = _spell.pending || !ta.value.trim();
+  if (_spell.pending) {
+    btn.textContent = "Revisando…";
+  } else if (!btn.disabled) {
+    btn.textContent = "Enviar →";
+  } else {
+    btn.textContent = "Enviar →";
+  }
+}
+
+function _spellApplyAndShow(correcciones, textoOriginal) {
+  const ta = document.getElementById("txtMsg");
+  // Solo aplicar si el texto no cambió mientras esperábamos la API
+  if (ta.value !== textoOriginal) return;
+
+  _spell.chips = [];
+  let texto = ta.value;
+
+  // Aplicar correcciones de derecha a izquierda para no desplazar posiciones
+  const sorted = [...correcciones].sort((a, b) => b.start - a.start);
+  for (const c of sorted) {
+    const id = ++_spell.seq;
+    // Verificar que la palabra en esa posición sigue siendo la misma
+    if (texto.slice(c.start, c.end) !== c.original) continue;
+    texto = texto.slice(0, c.start) + c.corrected + texto.slice(c.end);
+    _spell.chips.unshift({ id, original: c.original, corrected: c.corrected });
+  }
+
+  if (texto !== ta.value) {
+    ta.value = texto;
+    // Disparar resize del textarea
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
+  }
+
+  _spellRenderChips();
+}
+
+function _spellRenderChips() {
+  const container = document.getElementById("spellChips");
+  container.innerHTML = "";
+  for (const chip of _spell.chips) {
+    const el = document.createElement("span");
+    el.className = "spell-chip";
+    el.dataset.id = chip.id;
+    el.innerHTML =
+      `<span class="chip-label">¿quisiste decir</span>` +
+      `<span class="chip-word" title="Revertir a '${chip.original}'">${chip.original}</span>` +
+      `<span class="chip-x" title="Aceptar corrección">×</span>`;
+    // Clic en la palabra original → revertir esa corrección
+    el.querySelector(".chip-word").onclick = () => _spellRevert(chip.id);
+    // Clic en × → aceptar corrección y descartar chip
+    el.querySelector(".chip-x").onclick  = () => _spellDismiss(chip.id);
+    container.appendChild(el);
+  }
+}
+
+function _spellRevert(id) {
+  const chip = _spell.chips.find(c => c.id === id);
+  if (!chip) return;
+  const ta = document.getElementById("txtMsg");
+  // Reemplazar primera aparición de la palabra corregida → original
+  ta.value = ta.value.replace(chip.corrected, chip.original);
+  _spell.chips = _spell.chips.filter(c => c.id !== id);
+  _spellRenderChips();
+}
+
+function _spellDismiss(id) {
+  _spell.chips = _spell.chips.filter(c => c.id !== id);
+  _spellRenderChips();
+}
+
+async function _spellCheck(texto) {
+  _spell.pending = true;
+  _spellBtnReady();
+  try {
+    const res = await fetch("/api/spellcheck", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ texto }),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.correcciones && data.correcciones.length > 0) {
+      _spellApplyAndShow(data.correcciones, texto);
+    }
+  } catch { /* sin conexión: no bloqueamos */ }
+  finally {
+    _spell.pending = false;
+    _spellBtnReady();
+  }
+}
+
+// ── Helpers composer ──────────────────────────────────────────────────────
+function onTxtInput(ta) {
+  ta.style.height = "auto";
+  ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
+
+  // Limpiar chips viejos y reiniciar timer de spell check
+  _spell.chips = [];
+  _spellRenderChips();
+  clearTimeout(_spell.timer);
+  const texto = ta.value;
+  if (texto.trim()) {
+    _spell.timer = setTimeout(() => _spellCheck(texto), 500);
+  }
+
+  _spellBtnReady();
+}
+
+function setSendingState(on) {
+  const btn = document.getElementById("btnSend");
+  if (on) {
+    // Cancelar spell check pendiente y limpiar chips al enviar
+    clearTimeout(_spell.timer);
+    _spell.pending = false;
+    _spell.chips = [];
+    _spellRenderChips();
+    btn.disabled = true;
+    btn.classList.add("sending");
+    btn.innerHTML = '<span class="spin-icon"></span>';
+  } else {
+    btn.classList.remove("sending");
+    _spellBtnReady();
+  }
+}
+
+function showToast(msg, tipo = "") {
+  const t = document.createElement("div");
+  t.className = "toast" + (tipo ? " " + tipo : "");
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add("show")));
+  setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 250); }, 3500);
+}
+
+// ── Mensajes ───────────────────────────────────────────────────────────────
+async function enviar() {
+  const ta  = document.getElementById("txtMsg");
+  const txt = ta.value.trim();
+  if (!txt || enviando) return;
+
+  enviando = true;
+  const savedTxt = txt;
+
+  // Limpiar input inmediatamente — no esperar la respuesta del servidor
+  ta.value = "";
+  ta.style.height = "42px";
+  setSendingState(true);
+
+  try {
+    const res = await fetch("/api/enviar", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        texto: savedTxt,
+        canal_id: canalActivo?.id || "",
+        nodo_destino: canalActivo?.nombre || "",
+        contexto: ""
+      })
+    });
+    if (!res.ok) {
+      ta.value = savedTxt;
+      onTxtInput(ta);
+      showToast(`Error ${res.status} al enviar`, "err");
+    }
+  } catch {
+    ta.value = savedTxt;
+    onTxtInput(ta);
+    showToast("Sin conexión con el servidor", "err");
+  } finally {
+    enviando = false;
+    setSendingState(false);
+    ta.focus();
+  }
+}
+
+async function eliminarMensaje(id) {
+  await fetch(`/api/mensajes/${id}`, {method:"DELETE"});
+  const el = document.getElementById("m-" + id);
+  if (el) el.remove();
+  if (!document.getElementById("messages").querySelector(".msg-wrap")) {
+    document.getElementById("messages").innerHTML = '<div class="empty"><div class="empty-icon">📡</div><div>Sin mensajes aún</div></div>';
+  }
+}
+
+async function limpiarHistorial() {
+  await fetch("/api/mensajes", {method:"DELETE"});
+  document.getElementById("messages").innerHTML = '<div class="empty"><div class="empty-icon">📡</div><div>Sin mensajes aún</div></div>';
+}
+
+// ── Render mensajes ────────────────────────────────────────────────────────
+function renderMsg(msg) {
+  const box = document.getElementById("messages");
+  const empty = box.querySelector(".empty");
+  if (empty) empty.remove();
+  const old = document.getElementById("m-" + msg.id);
+  const html = bubbleHTML(msg);
+  if (old) { old.outerHTML = html; return; }
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  const el = div.firstElementChild;
+  box.appendChild(el);
+  el.scrollIntoView({behavior:"smooth", block:"end"});
+}
+
+function bubbleHTML(msg) {
+  const out = msg.direccion === "saliente";
+  const lbl = out ? `↑ ${esc(msg.nodo_origen)}` : `↓ ${esc(msg.nodo_destino||msg.nodo_origen)}`;
+  const enc = msg.encoding || "";
+
+  const encTag = enc.includes("lora")     ? `<span class="tag t-lora">LoRa</span>`
+               : enc.includes("raw")      ? `<span class="tag t-raw">raw UTF-8</span>`
+               : enc.includes("lossless") ? `<span class="tag t-lossless">lossless</span>`
+               : "";
+
+  const orig = msg.bytes_original||0, tx = msg.bytes_tx||0;
+  const bTag = orig && orig !== tx
+    ? `<span class="tag t-bytes">${orig}B → ${tx}B</span>`
+    : `<span class="tag t-bytes">${tx}B</span>`;
+
+  const r = msg.ratio_pct||0;
+  const rc = r>0?"t-ratio-pos":r<0?"t-ratio-neg":"t-ratio-zero";
+  const ratioTag = `<span class="tag ${rc}">${r>0?"-":""}${Math.abs(r).toFixed(1)}%</span>`;
+  const tokTag   = msg.n_tokens ? `<span class="tag t-tok">${msg.n_tokens} tok</span>` : "";
+  const epill    = msg.estado   ? `<span class="epill e-${msg.estado}">${esc(msg.estado_label)}</span>` : "";
+  const recon    = (msg.texto_reconstruido && msg.texto_reconstruido !== msg.texto_original)
+    ? `<div class="bubble-recon">${esc(msg.texto_reconstruido)}</div>` : "";
+
+  return `<div class="msg-wrap ${out?'out':'in'}" id="m-${msg.id}">
+    <div class="bubble">
+      <div class="bubble-top"><span class="nodo-lbl">${lbl}</span>${epill}</div>
+      <div class="bubble-text">${esc(msg.texto_original)}</div>
+      ${recon}
+      <div class="bubble-meta">${bTag}${encTag}${ratioTag}${tokTag}</div>
+      <button class="msg-del" onclick="eliminarMensaje('${msg.id}')" title="Eliminar mensaje">✕</button>
+    </div>
+  </div>`;
+}
+
+// ── LoRa modal ─────────────────────────────────────────────────────────────
+async function abrirLoraModal() {
+  document.getElementById("loraOverlay").classList.add("show");
+  await cargarPuertos();
+  await cargarLoraConfig();
+  await actualizarLoraStatus();
+}
+function cerrarLoraModal() { document.getElementById("loraOverlay").classList.remove("show"); }
+
+async function cargarPuertos() {
+  const puertos = await fetchJSON("/api/lora/puertos") || [];
+  const sel = document.getElementById("loraPort");
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Seleccionar…</option>' +
+    puertos.map(p => `<option value="${esc(p.port)}">${esc(p.port)} — ${esc(p.desc||'')}</option>`).join("");
+  if (cur) sel.value = cur;
+}
+
+async function cargarLoraConfig() {
+  const cfg = await fetchJSON("/api/lora/config");
+  if (!cfg) return;
+  document.getElementById("loraEnabled").checked = cfg.enabled;
+  document.getElementById("loraPort").value      = cfg.port;
+  document.getElementById("loraBaud").value      = cfg.baudrate;
+  document.getElementById("loraModo").value      = cfg.modo;
+  document.getElementById("loraSF").value        = cfg.sf;
+  document.getElementById("loraBW").value        = cfg.bw;
+  document.getElementById("loraPow").value       = cfg.tx_power;
+  document.getElementById("loraChunk").value     = cfg.max_chunk;
+  document.getElementById("loraAddr").value      = cfg.address;
+  document.getElementById("loraNetId").value     = cfg.network_id;
+  document.getElementById("loraTcpHost").value   = cfg.tcp_host || "";
+  document.getElementById("loraTcpPort").value   = cfg.tcp_port || 9000;
+  onLoraModoChange();
+}
+
+async function actualizarLoraStatus() {
+  const st = await fetchJSON("/api/lora/status");
+  if (!st) return;
+  const conn = st.connected;
+  document.getElementById("stConn").textContent = conn ? "Conectado" : (st.enabled ? "Desconectado" : "Deshabilitado");
+  document.getElementById("stConn").className = "lora-status-val " + (conn ? "ok" : st.enabled ? "err" : "");
+  document.getElementById("stPort").textContent = st.port || "—";
+  document.getElementById("stRssi").textContent = st.rssi_last != null ? `${st.rssi_last} dBm` : "—";
+  document.getElementById("stSnr").textContent  = st.snr_last  != null ? `${st.snr_last} dB`   : "—";
+  const errEl = document.getElementById("stErr");
+  errEl.textContent = st.error || "—";
+  errEl.className = "lora-status-val " + (st.error ? "err" : "");
+}
+
+function onLoraModoChange() {
+  const modo = document.getElementById("loraModo").value;
+  document.getElementById("tcpFields").style.display = modo === "tcp" ? "block" : "none";
+}
+
+function abrirFirmwareModal() {
+  document.getElementById("firmwareOverlay").style.display = "flex";
+}
+
+function cerrarFirmwareModal() {
+  document.getElementById("firmwareOverlay").style.display = "none";
+}
+
+async function descargarFirmware() {
+  const ssid     = document.getElementById("fwSSID").value.trim();
+  const password = document.getElementById("fwPass").value;
+  if (!ssid) { showToast("Ingresá el nombre de la red WiFi (SSID)", "err"); return; }
+  const url = `/api/firmware/xiao-esp32s3?ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(password)}`;
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  cerrarFirmwareModal();
+}
+
+async function guardarLoraConfig() {
+  const body = {
+    enabled:    document.getElementById("loraEnabled").checked,
+    port:       document.getElementById("loraPort").value,
+    baudrate:   +document.getElementById("loraBaud").value,
+    modo:       document.getElementById("loraModo").value,
+    sf:         +document.getElementById("loraSF").value,
+    bw:         +document.getElementById("loraBW").value,
+    tx_power:   +document.getElementById("loraPow").value,
+    max_chunk:  +document.getElementById("loraChunk").value,
+    address:    +document.getElementById("loraAddr").value,
+    network_id: +document.getElementById("loraNetId").value,
+    tcp_host:   document.getElementById("loraTcpHost").value.trim(),
+    tcp_port:   +document.getElementById("loraTcpPort").value,
+  };
+  const btn = document.querySelector(".btn-lora");
+  btn.textContent = "Conectando…"; btn.disabled = true;
+  const res = await fetchJSON("/api/lora/config", {
+    method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
+  });
+  btn.textContent = "Guardar y conectar"; btn.disabled = false;
+  if (res) { await actualizarLoraStatus(); actualizarLoraChip(); }
+}
+
+async function actualizarLoraChip() {
+  const st = await fetchJSON("/api/lora/status");
+  const chip = document.getElementById("loraChip");
+  if (!st) return;
+  chip.className = "lora-chip" + (st.connected ? " ok" : st.enabled && st.error ? " err" : "");
+  chip.querySelector(".lora-lbl").textContent = st.connected
+    ? `LoRa SF${st.sf}` : st.enabled ? "LoRa (error)" : "LoRa";
+}
+
+// ── WebSocket ──────────────────────────────────────────────────────────────
+function conectarWS() {
+  const p = location.protocol==="https:"?"wss":"ws";
+  ws = new WebSocket(`${p}://${location.host}/ws`);
+  ws.onopen  = () => document.getElementById("wsDot").classList.add("on");
+  ws.onclose = () => { document.getElementById("wsDot").classList.remove("on"); setTimeout(conectarWS,3000); };
+  ws.onmessage = e => {
+    const {evento, data} = JSON.parse(e.data);
+    if (evento === "bienvenida")          { nodeId=data.node_id; document.getElementById("nodeBadge").textContent=nodeId; }
+    if (evento === "nuevo_mensaje")       renderMsg(data);
+    if (evento === "estado_actualizado")  renderMsg(data);
+    if (evento === "canales_actualizados") cargarCanales();
+  };
+}
+
+function esc(s) {
+  if (!s) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { cerrarModal(); cerrarEditModal(); cerrarLoraModal(); cerrarFirmwareModal(); closeSidebar(); }
+});
+
+init();
+</script>
+</body>
+</html>

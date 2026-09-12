@@ -1,0 +1,34 @@
+# Cache Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.Python
+
+# Entorno virtual local
+.venv/
+venv/
+env/
+
+# Notebook de análisis (excluido del contenedor)
+notebooks/
+
+# Modelo entrenado localmente (se regenera en el build)
+modelos/
+
+# Git
+.git/
+.gitignore
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

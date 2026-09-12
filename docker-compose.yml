@@ -1,0 +1,72 @@
+services:
+
+  nodo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: meshstatic:latest
+    container_name: meshstatic-${NODE_ID}
+    ports:
+      - "${PORT}:8000"
+    environment:
+      NODE_ID:     ${NODE_ID}
+      PEER_URL:    ""
+      OWN_URL:     http://host.docker.internal:${PORT}
+      BACKEND:     ${BACKEND:-ollama}
+      MODELO:      ${MODELO}
+      PORT:        8000
+      OLLAMA_HOST: http://ollama:11434
+    volumes:
+      - cache:/app/.cache
+    networks:
+      - mesh
+    restart: unless-stopped
+    depends_on:
+      ollama:
+        condition: service_healthy
+        required: false
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-${NODE_ID}
+    ports:
+      - "${OLLAMA_PORT}:11434"
+    volumes:
+      - ollama:/root/.ollama
+    networks:
+      - mesh
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  jupyter:
+    image: jupyter/scipy-notebook:latest
+    container_name: jupyter-${NODE_ID}
+    profiles:
+      - jupyter
+    ports:
+      - "8888:8888"
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+      NODO_URL: "http://nodo:8000"
+    volumes:
+      - ./notebooks:/home/jovyan/work
+    networks:
+      - mesh
+    command: >
+      start-notebook.sh
+      --NotebookApp.token=''
+      --NotebookApp.password=''
+    restart: unless-stopped
+
+volumes:
+  cache:
+  ollama:
+
+networks:
+  mesh:
+    driver: bridge
