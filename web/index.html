@@ -183,6 +183,7 @@ textarea:focus{border-color:var(--blue);}
 /* ── Spinner ─────────────────────────────────────────────────────────────── */
 @keyframes spin{to{transform:rotate(360deg);}}
 .spin-icon{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;}
+.spin-icon-muted{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--muted);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;}
 
 /* ── Toast ───────────────────────────────────────────────────────────────── */
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 16px;font-size:12px;z-index:300;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap;max-width:calc(100vw - 32px);text-align:center;}
@@ -193,6 +194,8 @@ textarea:focus{border-color:var(--blue);}
 /* Send button vacío */
 .btn-send:disabled:not(.sending){background:var(--surface2);border:1px solid var(--border);color:var(--muted);}
 .btn-send.sending{opacity:1!important;cursor:wait;}
+.btn-export.loading,.btn-file.loading{opacity:1!important;cursor:wait;border-color:var(--muted);}
+.btn-export.loading{border-color:var(--amber);}
 
 /* Loading en messages */
 .loading-spin{font-size:22px;animation:spin .8s linear infinite;opacity:.4;}
@@ -275,6 +278,7 @@ textarea:focus{border-color:var(--blue);}
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviar();}"
           oninput="onTxtInput(this)"></textarea>
         <button class="btn-export" id="btnExport" onclick="exportarMsh()" disabled title="Codificar y guardar como archivo .msh">↓ .msh</button>
+        <button class="btn-file" id="btnImport" onclick="document.getElementById('inputImport').click()" title="Abrir archivo .msh recibido">📂 .msh</button>
         <button class="btn-send" id="btnSend" onclick="enviar()" disabled>Enviar →</button>
       </div>
       <input type="file" id="inputImport" accept=".msh" style="display:none" onchange="importarMsh(this)">
@@ -284,8 +288,6 @@ textarea:focus{border-color:var(--blue);}
         <span class="hint-sep">|</span>
         <span id="hintEnc">Encoding: lossless</span>
         <span class="hint-keyboard"><span class="hint-sep">|</span>Enter envía · Shift+Enter nueva línea</span>
-        <span class="hint-sep">|</span>
-        <button class="btn-file" onclick="document.getElementById('inputImport').click()" title="Abrir archivo .msh recibido">📂 Abrir .msh</button>
       </div>
     </div>
   </div>
@@ -824,19 +826,30 @@ async function exportarMsh() {
   const txt = ta.value.trim();
   if (!txt) return;
 
-  const btnExp = document.getElementById("btnExport");
+  const btnExp   = document.getElementById("btnExport");
+  const savedTxt = txt;
   btnExp.disabled = true;
-  btnExp.textContent = "…";
+  btnExp.classList.add("loading");
+  btnExp.innerHTML = '<span class="spin-icon-muted"></span>';
+
+  // Limpiar input de inmediato (igual que enviar())
+  ta.value = "";
+  ta.style.height = "42px";
+  _spellBtnReady();
 
   try {
-    const emisor = document.querySelector(".badge")?.textContent?.replace("nodo: ", "") || "";
     const nombre = "msg_" + new Date().toISOString().slice(0,19).replace(/[T:]/g, "-");
     const res = await fetch("/api/exportar", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ texto: txt, nombre, emisor })
+      body: JSON.stringify({ texto: savedTxt, nombre })
     });
-    if (!res.ok) { showToast("Error al exportar", "err"); return; }
+    if (!res.ok) {
+      ta.value = savedTxt;
+      onTxtInput(ta);
+      showToast("Error al exportar", "err");
+      return;
+    }
 
     const blob = await res.blob();
     const url  = URL.createObjectURL(blob);
@@ -845,13 +858,38 @@ async function exportarMsh() {
     a.href = url; a.download = fn; a.click();
     URL.revokeObjectURL(url);
 
-    const ratio = res.headers.get("X-Meshstatic-Ratio") || "?";
-    const modo  = res.headers.get("X-Meshstatic-Modo")  || "?";
-    showToast(`Archivo exportado · ${modo} · ${ratio}% de ahorro`);
+    const ratio    = parseFloat(res.headers.get("X-Meshstatic-Ratio") || "0");
+    const modo     = res.headers.get("X-Meshstatic-Modo") || "lossless";
+    const bytesOrig = parseInt(res.headers.get("X-Meshstatic-Bytes-Orig") || "0");
+    const bytesTx   = parseInt(res.headers.get("X-Meshstatic-Bytes-Tx")   || "0");
+
+    // Mostrar como burbuja saliente
+    const msgFake = {
+      id:                 "exp_" + Date.now(),
+      texto_original:     savedTxt,
+      texto_reconstruido: savedTxt,
+      estado:             "enviado",
+      estado_label:       "Exportado (.msh)",
+      bytes_original:     bytesOrig,
+      bytes_tx:           bytesTx,
+      ratio_pct:          ratio,
+      n_tokens:           0,
+      encoding:           `archivo/${modo}`,
+      direccion:          "saliente",
+      nodo_origen:        document.querySelector(".badge")?.textContent?.replace("nodo: ","") || "yo",
+      nodo_destino:       fn,
+      timestamp:          new Date().toISOString(),
+      encode_ms:          0,
+    };
+    renderMsg(msgFake);
+    showToast(`${fn} · ${modo} · ${ratio}% de ahorro`);
   } catch {
+    ta.value = savedTxt;
+    onTxtInput(ta);
     showToast("Sin conexión con el servidor", "err");
   } finally {
-    btnExp.textContent = "↓ .msh";
+    btnExp.classList.remove("loading");
+    btnExp.innerHTML = "↓ .msh";
     _spellBtnReady();
   }
 }
@@ -860,6 +898,11 @@ async function importarMsh(input) {
   const file = input.files[0];
   if (!file) return;
   input.value = "";   // reset para poder importar el mismo archivo dos veces
+
+  const btnImp = document.getElementById("btnImport");
+  btnImp.disabled = true;
+  btnImp.classList.add("loading");
+  btnImp.innerHTML = '<span class="spin-icon-muted"></span>';
 
   const fd = new FormData();
   fd.append("archivo", file);
@@ -876,13 +919,13 @@ async function importarMsh(input) {
       texto_reconstruido:  d.texto_reconstruido,
       estado:              d.crc_ok ? "recibido" : "error_rx",
       estado_label:        d.crc_ok ? "Importado (.msh)" : "CRC error",
-      bytes_original:      d.meta_emisor?.bytes_orig  || 0,
-      bytes_tx:            d.meta_emisor?.bytes_tx    || 0,
-      ratio_pct:           d.meta_emisor?.ratio_pct   || 0,
+      bytes_original:      0,
+      bytes_tx:            0,
+      ratio_pct:           0,
       n_tokens:            0,
       encoding:            `archivo/${d.modo}`,
       direccion:           "entrante",
-      nodo_origen:         d.meta_emisor?.emisor || "archivo",
+      nodo_origen:         file.name,
       timestamp:           new Date().toISOString(),
       decode_ms:           d.decode_ms,
     };
@@ -892,6 +935,10 @@ async function importarMsh(input) {
     showToast(`Importado desde ${file.name} · ${d.modo} · ${crcTxt}`);
   } catch {
     showToast("Error al leer el archivo", "err");
+  } finally {
+    btnImp.disabled = false;
+    btnImp.classList.remove("loading");
+    btnImp.innerHTML = "📂 .msh";
   }
 }
 
