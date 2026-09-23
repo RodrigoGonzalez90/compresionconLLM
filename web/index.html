@@ -119,6 +119,11 @@ textarea:focus{border-color:var(--blue);}
 .btn-send{background:var(--blue);border:none;border-radius:var(--radius);padding:9px 18px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;height:42px;flex-shrink:0;}
 .btn-send:hover{opacity:.9;}
 .btn-send:disabled{opacity:.4;cursor:not-allowed;}
+.btn-file{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;height:42px;flex-shrink:0;transition:border-color .2s,color .2s;}
+.btn-file:hover{border-color:var(--green);color:var(--green);}
+.btn-export{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;height:42px;flex-shrink:0;transition:border-color .2s,color .2s;}
+.btn-export:hover{border-color:var(--amber);color:var(--amber);}
+.btn-export:disabled{opacity:.4;cursor:not-allowed;}
 .composer-hint{font-size:10px;color:var(--muted);margin-top:5px;display:flex;gap:8px;flex-wrap:wrap;}
 .hint-sep{opacity:.3;}
 .spell-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;min-height:0;}
@@ -269,14 +274,18 @@ textarea:focus{border-color:var(--blue);}
           spellcheck="true" lang="es"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviar();}"
           oninput="onTxtInput(this)"></textarea>
+        <button class="btn-export" id="btnExport" onclick="exportarMsh()" disabled title="Codificar y guardar como archivo .msh">↓ .msh</button>
         <button class="btn-send" id="btnSend" onclick="enviar()" disabled>Enviar →</button>
       </div>
+      <input type="file" id="inputImport" accept=".msh" style="display:none" onchange="importarMsh(this)">
       <div class="spell-chips" id="spellChips"></div>
       <div class="composer-hint">
         <span id="hintCanal">Canal: ninguno</span>
         <span class="hint-sep">|</span>
         <span id="hintEnc">Encoding: lossless</span>
         <span class="hint-keyboard"><span class="hint-sep">|</span>Enter envía · Shift+Enter nueva línea</span>
+        <span class="hint-sep">|</span>
+        <button class="btn-file" onclick="document.getElementById('inputImport').click()" title="Abrir archivo .msh recibido">📂 Abrir .msh</button>
       </div>
     </div>
   </div>
@@ -667,10 +676,13 @@ const _spell = {
 };
 
 function _spellBtnReady() {
-  const btn = document.getElementById("btnSend");
+  const btn    = document.getElementById("btnSend");
+  const btnExp = document.getElementById("btnExport");
   if (btn.classList.contains("sending")) return;
   const ta = document.getElementById("txtMsg");
-  btn.disabled = _spell.pending || !ta.value.trim();
+  const hasText = !!ta.value.trim();
+  btn.disabled    = _spell.pending || !hasText;
+  btnExp.disabled = !hasText;
   if (_spell.pending) {
     btn.textContent = "Revisando…";
   } else if (!btn.disabled) {
@@ -804,6 +816,83 @@ function showToast(msg, tipo = "") {
   document.body.appendChild(t);
   requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add("show")));
   setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 250); }, 3500);
+}
+
+// ── Transporte por archivo .msh ────────────────────────────────────────────
+async function exportarMsh() {
+  const ta  = document.getElementById("txtMsg");
+  const txt = ta.value.trim();
+  if (!txt) return;
+
+  const btnExp = document.getElementById("btnExport");
+  btnExp.disabled = true;
+  btnExp.textContent = "…";
+
+  try {
+    const emisor = document.querySelector(".badge")?.textContent?.replace("nodo: ", "") || "";
+    const nombre = "msg_" + new Date().toISOString().slice(0,19).replace(/[T:]/g, "-");
+    const res = await fetch("/api/exportar", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ texto: txt, nombre, emisor })
+    });
+    if (!res.ok) { showToast("Error al exportar", "err"); return; }
+
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    const fn   = res.headers.get("Content-Disposition")?.match(/filename="([^"]+)"/)?.[1] || nombre + ".msh";
+    a.href = url; a.download = fn; a.click();
+    URL.revokeObjectURL(url);
+
+    const ratio = res.headers.get("X-Meshstatic-Ratio") || "?";
+    const modo  = res.headers.get("X-Meshstatic-Modo")  || "?";
+    showToast(`Archivo exportado · ${modo} · ${ratio}% de ahorro`);
+  } catch {
+    showToast("Sin conexión con el servidor", "err");
+  } finally {
+    btnExp.textContent = "↓ .msh";
+    _spellBtnReady();
+  }
+}
+
+async function importarMsh(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = "";   // reset para poder importar el mismo archivo dos veces
+
+  const fd = new FormData();
+  fd.append("archivo", file);
+
+  try {
+    const res = await fetch("/api/importar", { method: "POST", body: fd });
+    if (!res.ok) { showToast(`Error al importar: ${res.status}`, "err"); return; }
+    const d = await res.json();
+
+    // Mostrar el mensaje decodificado como una burbuja entrante
+    const msgFake = {
+      id:                  "imp_" + Date.now(),
+      texto_original:      d.texto_reconstruido,
+      texto_reconstruido:  d.texto_reconstruido,
+      estado:              d.crc_ok ? "recibido" : "error_rx",
+      estado_label:        d.crc_ok ? "Importado (.msh)" : "CRC error",
+      bytes_original:      d.meta_emisor?.bytes_orig  || 0,
+      bytes_tx:            d.meta_emisor?.bytes_tx    || 0,
+      ratio_pct:           d.meta_emisor?.ratio_pct   || 0,
+      n_tokens:            0,
+      encoding:            `archivo/${d.modo}`,
+      direccion:           "entrante",
+      nodo_origen:         d.meta_emisor?.emisor || "archivo",
+      timestamp:           new Date().toISOString(),
+      decode_ms:           d.decode_ms,
+    };
+    renderMsg(msgFake);
+
+    const crcTxt = d.crc_ok ? "CRC OK" : "⚠ CRC error";
+    showToast(`Importado desde ${file.name} · ${d.modo} · ${crcTxt}`);
+  } catch {
+    showToast("Error al leer el archivo", "err");
+  }
 }
 
 // ── Mensajes ───────────────────────────────────────────────────────────────

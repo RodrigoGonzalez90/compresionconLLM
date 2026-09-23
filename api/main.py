@@ -29,6 +29,7 @@ from api.routes import canales as canales_router
 from api.routes import lora as lora_router
 from api.routes import firmware as firmware_router
 from api.routes import spellcheck as spellcheck_router
+from api.routes import archivo as archivo_router
 from api.routes.ws import manager as ws_manager
 
 WEB_PATH = ROOT / "web"
@@ -160,6 +161,7 @@ app.include_router(canales_router.router)
 app.include_router(lora_router.router)
 app.include_router(firmware_router.router)
 app.include_router(spellcheck_router.router)
+app.include_router(archivo_router.router)
 
 if WEB_PATH.exists():
     app.mount("/static", StaticFiles(directory=str(WEB_PATH)), name="static")
