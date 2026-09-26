@@ -38,15 +38,22 @@ async def exportar(body: ExportarRequest, request: Request):
     st      = request.app.state
     paquete = st.lm_encoder.comprimir(body.texto)
 
+    n_tokens  = paquete.n_tokens
+    encode_ms = round(paquete.encode_ms, 1)
+    tok_per_s = round(n_tokens / paquete.encode_ms * 1000, 2) if paquete.encode_ms > 0 else 0
+
     return Response(
         content=paquete.datos,
         media_type="application/octet-stream",
         headers={
-            "Content-Disposition": f'attachment; filename="{body.nombre}.{MSH_EXT}"',
-            "X-Meshstatic-Modo":   paquete.modo,
-            "X-Meshstatic-Ratio":  str(round(paquete.porcentaje_ahorro, 1)),
+            "Content-Disposition":     f'attachment; filename="{body.nombre}.{MSH_EXT}"',
+            "X-Meshstatic-Modo":       paquete.modo,
+            "X-Meshstatic-Ratio":      str(round(paquete.porcentaje_ahorro, 1)),
             "X-Meshstatic-Bytes-Orig": str(paquete.bytes_originales),
             "X-Meshstatic-Bytes-Tx":   str(paquete.bytes_transmitidos),
+            "X-Meshstatic-N-Tokens":   str(n_tokens),
+            "X-Meshstatic-Encode-Ms":  str(encode_ms),
+            "X-Meshstatic-Tok-Per-S":  str(tok_per_s),
         },
     )
 

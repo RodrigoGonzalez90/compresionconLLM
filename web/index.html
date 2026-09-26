@@ -99,6 +99,7 @@ aside{border-right:1px solid var(--border);display:flex;flex-direction:column;ov
 .t-ratio-neg{background:#2a1e1e;color:var(--red);}
 .t-ratio-zero{background:var(--surface2);color:var(--muted);}
 .t-tok{background:#1e1a2e;color:#c4b5fd;}
+.t-perf{background:#1a2535;color:#93c5fd;}
 .epill{font-size:10px;padding:1px 7px;border-radius:99px;}
 .e-enviando{background:#1a2035;color:var(--blue);}
 .e-confirmado{background:#1a2a1a;color:var(--green);}
@@ -907,10 +908,13 @@ async function exportarMsh() {
     a.href = url; a.download = fn; a.click();
     URL.revokeObjectURL(url);
 
-    const ratio    = parseFloat(res.headers.get("X-Meshstatic-Ratio") || "0");
-    const modo     = res.headers.get("X-Meshstatic-Modo") || "lossless";
-    const bytesOrig = parseInt(res.headers.get("X-Meshstatic-Bytes-Orig") || "0");
-    const bytesTx   = parseInt(res.headers.get("X-Meshstatic-Bytes-Tx")   || "0");
+    const ratio     = parseFloat(res.headers.get("X-Meshstatic-Ratio")      || "0");
+    const modo      = res.headers.get("X-Meshstatic-Modo")                  || "lossless";
+    const bytesOrig = parseInt(res.headers.get("X-Meshstatic-Bytes-Orig")   || "0");
+    const bytesTx   = parseInt(res.headers.get("X-Meshstatic-Bytes-Tx")    || "0");
+    const nTokens   = parseInt(res.headers.get("X-Meshstatic-N-Tokens")    || "0");
+    const encodeMs  = parseFloat(res.headers.get("X-Meshstatic-Encode-Ms") || "0");
+    const tokPerS   = parseFloat(res.headers.get("X-Meshstatic-Tok-Per-S") || "0");
 
     // Mostrar como burbuja saliente
     const msgFake = {
@@ -922,13 +926,14 @@ async function exportarMsh() {
       bytes_original:     bytesOrig,
       bytes_tx:           bytesTx,
       ratio_pct:          ratio,
-      n_tokens:           0,
+      n_tokens:           nTokens,
       encoding:           `archivo/${modo}`,
       direccion:          "saliente",
       nodo_origen:        document.querySelector(".badge")?.textContent?.replace("nodo: ","") || "yo",
       nodo_destino:       fn,
       timestamp:          new Date().toISOString(),
-      encode_ms:          0,
+      encode_ms:          encodeMs,
+      tok_per_s:          tokPerS,
     };
     renderMsg(msgFake);
     showToast(`${fn} · ${modo} · ${ratio}% de ahorro`);
@@ -1090,6 +1095,21 @@ function bubbleHTML(msg) {
   const rc = r>0?"t-ratio-pos":r<0?"t-ratio-neg":"t-ratio-zero";
   const ratioTag = `<span class="tag ${rc}">${r>0?"-":""}${Math.abs(r).toFixed(1)}%</span>`;
   const tokTag   = msg.n_tokens ? `<span class="tag t-tok">${msg.n_tokens} tok</span>` : "";
+
+  let perfTag = "";
+  if (msg.encode_ms > 0) {
+    const secs = msg.encode_ms >= 1000
+      ? (msg.encode_ms / 1000).toFixed(1) + "s"
+      : Math.round(msg.encode_ms) + "ms";
+    const tps  = msg.tok_per_s ? ` · ${msg.tok_per_s.toFixed(1)} tok/s` : "";
+    perfTag = `<span class="tag t-perf" title="Tiempo de codificación">${secs}${tps}</span>`;
+  } else if (msg.decode_ms > 0) {
+    const secs = msg.decode_ms >= 1000
+      ? (msg.decode_ms / 1000).toFixed(1) + "s"
+      : Math.round(msg.decode_ms) + "ms";
+    perfTag = `<span class="tag t-perf" title="Tiempo de decodificación">${secs}</span>`;
+  }
+
   const epill    = msg.estado   ? `<span class="epill e-${msg.estado}">${esc(msg.estado_label)}</span>` : "";
   const recon    = (msg.texto_reconstruido && msg.texto_reconstruido !== msg.texto_original)
     ? `<div class="bubble-recon">${esc(msg.texto_reconstruido)}</div>` : "";
@@ -1099,7 +1119,7 @@ function bubbleHTML(msg) {
       <div class="bubble-top"><span class="nodo-lbl">${lbl}</span>${epill}</div>
       <div class="bubble-text">${esc(msg.texto_original)}</div>
       ${recon}
-      <div class="bubble-meta">${bTag}${encTag}${ratioTag}${tokTag}</div>
+      <div class="bubble-meta">${bTag}${encTag}${ratioTag}${tokTag}${perfTag}</div>
       <button class="msg-del" onclick="eliminarMensaje('${msg.id}')" title="Eliminar mensaje">✕</button>
     </div>
   </div>`;
