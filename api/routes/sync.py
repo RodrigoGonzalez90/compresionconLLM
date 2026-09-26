@@ -13,6 +13,7 @@ from typing import Optional
 
 import httpx
 from api.peers import aprender_par, cabeceras_propias
+from src.sync import instancia_id
 from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter(prefix="/api/sync")
@@ -52,7 +53,7 @@ async def sincronizar(st, peer_url: str, forzar: bool = False) -> dict:
         r.raise_for_status()
         remoto = r.json()
         canal = st.gestor_canales.por_url(peer_url)
-        if canal and remoto.get("instancia"):
+        if canal and remoto.get("instancia") and remoto["instancia"] != instancia_id():
             st.gestor_canales.vincular(canal, remoto["instancia"])
 
         if not forzar:

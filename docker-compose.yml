@@ -11,13 +11,14 @@ services:
     environment:
       NODE_ID:     ${NODE_ID}
       PEER_URL:    ""
-      OWN_URL:     http://host.docker.internal:${PORT}
+      OWN_URL:     http://${HOST_IP:-host.docker.internal}:${PORT}
       BACKEND:     ${BACKEND:-ollama}
       MODELO:      ${MODELO}
       PORT:        8000
       OLLAMA_HOST: http://ollama:11434
     volumes:
       - cache:/app/.cache
+      - data:/app/data   # nombre del nodo, ID de instancia, canales, medios y mensajes
     networks:
       - mesh
     restart: unless-stopped
@@ -65,6 +66,7 @@ services:
 
 volumes:
   cache:
+  data:
   ollama:
 
 networks:

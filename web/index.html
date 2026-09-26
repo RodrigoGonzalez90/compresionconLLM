@@ -44,6 +44,9 @@ aside{border-right:1px solid var(--border);display:flex;flex-direction:column;ov
 .btn-icon{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px 6px;border-radius:4px;flex-shrink:0;}
 .btn-icon:hover{background:var(--surface2);color:var(--text);}
 .canal-list{flex:1;overflow-y:auto;padding:6px;}
+.par-pend{border:1px dashed var(--amber);border-radius:var(--radius);padding:8px;margin-bottom:6px;font-size:11px;line-height:1.5;background:rgba(245,166,35,.06);}
+.par-pend b{color:var(--amber);}
+.par-pend button{margin-top:6px;width:100%;padding:6px;border-radius:6px;border:1px solid var(--amber);background:none;color:var(--amber);cursor:pointer;font-size:11px;font-weight:600;}
 .canal-item{display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:var(--radius);cursor:pointer;margin-bottom:2px;border:1px solid transparent;position:relative;}
 .canal-item:hover{background:var(--surface2);}
 .canal-item.active{background:var(--surface2);border-color:var(--border);}
@@ -505,7 +508,7 @@ textarea:focus{border-color:var(--blue);}
 let nodeId = "", canalActivo = null, ws = null, tipoCanal = "http";
 let canales = [], enviando = false;
 let medios = [], mediosTipos = [], medioForm = null, puertosCache = [];
-let syncPares = {}, syncLocal = null;
+let syncPares = {}, syncLocal = null, paresPend = [];
 
 // fetch que devuelve {ok, data, msg} con el detalle de error de la API
 async function api(url, opts) {
@@ -567,6 +570,7 @@ async function init() {
   await cargarMedios();
   await cargarCanales();
   cargarSync();
+  cargarPendientes();
   const msgs = await fetchJSON("/api/mensajes");
   box.innerHTML = "";
   if (msgs?.length) {
@@ -610,13 +614,37 @@ async function cargarCanales() {
   if (canales.length && !canalActivo) selCanal(canales[0]);
 }
 
+function pendientesHTML() {
+  return paresPend.map(p => `<div class="par-pend">
+    <b>⚠ ${esc(p.nombre || "Un nodo")}</b> te escribió, pero no sé cómo responderle.
+    <button onclick="agregarDireccionPar('${esc(p.instancia)}')">Indicar su IP</button></div>`).join("");
+}
+
+async function cargarPendientes() {
+  paresPend = await fetchJSON("/api/pares/pendientes") || [];
+  pintarCanales();
+}
+
+async function agregarDireccionPar(iid) {
+  const p = paresPend.find(x => x.instancia === iid);
+  const host = prompt(`IP del equipo de ${p?.nombre || "ese nodo"} (ej: 192.168.1.50):`);
+  if (!host) return;
+  const r = await api(`/api/pares/pendientes/${iid}/direccion`, {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ host })
+  });
+  if (!r.ok) { showToast(r.msg, "err"); return; }
+  showToast(r.data.verificado ? "Canal creado y verificado" : "Canal creado (el par no respondió aún)", "ok");
+  await cargarCanales();
+  await cargarPendientes();
+}
+
 function pintarCanales() {
   const el = document.getElementById("canalList");
   if (!canales.length) {
-    el.innerHTML = '<div class="no-canales">Sin canales todavía.<br>Usá ＋ para agregar uno.</div>';
+    el.innerHTML = pendientesHTML() + '<div class="no-canales">Sin canales todavía.<br>Usá ＋ para agregar uno.</div>';
     return;
   }
-  el.innerHTML = canales.map(c => {
+  el.innerHTML = pendientesHTML() + canales.map(c => {
     const radio  = esRadio(c);
     const dotCls = radio ? "canal-dot lora" : "canal-dot";
     const m      = radio ? medioDe(c) : null;
@@ -656,6 +684,8 @@ function selCanal(c) {
   document.getElementById("txtMsg").placeholder = `Mensaje para ${c.nombre}…`;
   pintarCanales();
   actualizarSyncChip();
+  // Canal de red sin verificar (p. ej. creado por un mensaje entrante): sincronizar al abrirlo
+  if (!radio && !syncDe(c)) sincronizarCanal(c, true);
 }
 
 // ── Modal nuevo canal ──────────────────────────────────────────────────────
@@ -1592,11 +1622,13 @@ function conectarWS() {
   ws.onclose = () => { document.getElementById("wsDot").classList.remove("on"); setTimeout(conectarWS,3000); };
   ws.onmessage = e => {
     const {evento, data} = JSON.parse(e.data);
+    if (evento === "par_sin_direccion")   { cargarPendientes(); showToast(`${data.nombre || "Un nodo"} te escribió pero falta su IP para responderle`, "err"); }
+    if (evento === "sync_actualizado")    cargarSync();
     if (evento === "nodo_actualizado")    { nodeId=data.node_id; document.getElementById("nodeBadge").textContent=nodeId; pintarCanales(); }
     if (evento === "bienvenida")          { nodeId=data.node_id; document.getElementById("nodeBadge").textContent=nodeId; }
     if (evento === "nuevo_mensaje")       renderMsg(data);
     if (evento === "estado_actualizado")  renderMsg(data);
-    if (evento === "canales_actualizados") cargarCanales();
+    if (evento === "canales_actualizados") { cargarCanales(); cargarPendientes(); }
   };
 }
 

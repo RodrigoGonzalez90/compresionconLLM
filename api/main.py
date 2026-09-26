@@ -35,6 +35,7 @@ from api.routes import archivo as archivo_router
 from api.routes import sync as sync_router
 from api.routes import medios as medios_router
 from api.routes import nodo as nodo_router
+from api.routes import pares as pares_router
 from src import nodo as nodo_store
 from api.routes.ws import manager as ws_manager
 
@@ -87,6 +88,7 @@ async def lifespan(app: FastAPI):
 
     app.state.node_id        = node_id
     app.state.nodo_configurado = nombre_guardado is not None
+    app.state.pares_pendientes = {}
     app.state.own_url        = own_url
     app.state.backend        = backend
     app.state.lm_encoder     = lm_encoder
@@ -178,6 +180,7 @@ app.include_router(archivo_router.router)
 app.include_router(sync_router.router)
 app.include_router(medios_router.router)
 app.include_router(nodo_router.router)
+app.include_router(pares_router.router)
 
 if WEB_PATH.exists():
     app.mount("/static", StaticFiles(directory=str(WEB_PATH)), name="static")

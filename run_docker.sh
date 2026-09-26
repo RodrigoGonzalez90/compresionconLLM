@@ -45,7 +45,34 @@ usage() {
     exit 0
 }
 
+# Detecta la IP de este equipo en la red local (para que los pares puedan responderle).
+# Se recalcula en cada arranque, así un cambio de IP por DHCP se corrige con ./run_docker.sh up.
+# Para fijarla a mano: HOST_IP=192.168.1.50 ./run_docker.sh up   (o HOST_IP= en .env)
+detectar_ip() {
+    if [ -n "${HOST_IP:-}" ] || grep -q '^HOST_IP=.\+' .env 2>/dev/null; then return; fi
+    local ip=""
+    if command -v ip >/dev/null 2>&1; then
+        ip=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')
+    fi
+    if [ -z "$ip" ] && command -v powershell.exe >/dev/null 2>&1; then
+        ip=$(powershell.exe -NoProfile -Command "(Get-NetIPConfiguration | Where-Object { \$_.IPv4DefaultGateway -ne \$null -and \$_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1).IPv4Address.IPAddress" 2>/dev/null | tr -d '\r')
+    fi
+    if [ -z "$ip" ] && command -v ipconfig >/dev/null 2>&1; then
+        ip=$(ipconfig getifaddr en0 2>/dev/null || true)
+    fi
+    if [ -z "$ip" ] && command -v hostname >/dev/null 2>&1; then
+        ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+    fi
+    if [ -n "$ip" ]; then
+        export HOST_IP="$ip"
+        echo -e "${BOLD}IP de la red:${NC} $HOST_IP  (los pares te responden en http://$HOST_IP:${PORT})"
+    else
+        echo -e "${YELLOW}No se pudo detectar la IP de la red; los pares tendrán que indicarla a mano.${NC}"
+    fi
+}
+
 cmd_setup() {
+    detectar_ip
     echo ""
     echo -e "${BOLD}╔══════════════════════════════════════════╗${NC}"
     echo -e "${BOLD}║   MESHSTATIC — SETUP                     ║${NC}"
@@ -83,6 +110,7 @@ cmd_setup() {
 }
 
 cmd_up() {
+    detectar_ip
     docker compose up -d
     ok "Nodo ${NODE_ID} corriendo en http://localhost:${PORT}"
 }
