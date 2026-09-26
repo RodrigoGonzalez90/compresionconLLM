@@ -135,6 +135,12 @@ class LlamaCppBackend(LLMBackend):
             verbose=False,
         )
         log.info("LlamaCpp: modelo listo.")
+        n = self._llm.n_vocab()
+        self._vocab_table: list[str] = [
+            normalize_token(self._llm.detokenize([i]).decode("utf-8", errors="replace"))
+            for i in range(n)
+        ]
+        log.info("LlamaCpp: vocab table construida (%d entradas).", n)
 
     def reset(self) -> None:
         """Limpia el KV cache para garantizar determinismo entre mensajes."""
@@ -145,8 +151,7 @@ class LlamaCppBackend(LLMBackend):
         try:
             ids = self._llm.tokenize(text.encode("utf-8"), add_bos=False, special=False)
             if ids:
-                raw = self._llm.detokenize([ids[0]])
-                return raw.decode("utf-8", errors="replace")
+                return self._vocab_table[ids[0]]
         except Exception as exc:
             log.debug("next_token error: %s", exc)
         return text[0] if text else ""
@@ -161,16 +166,11 @@ class LlamaCppBackend(LLMBackend):
     def tokenize_with_ids(self, text: str) -> List[Tuple[str, int]]:
         """Tokeniza y retorna pares (token_str_normalizado, vocab_id)."""
         ids = self._llm.tokenize(text.encode("utf-8"), add_bos=False, special=False)
-        result = []
-        for id_ in ids:
-            raw = self._llm.detokenize([id_])
-            result.append((normalize_token(raw.decode("utf-8", errors="replace")), id_))
-        return result
+        return [(self._vocab_table[id_], id_) for id_ in ids]
 
     def id_to_token(self, token_id: int) -> str:
         """Convierte un vocab ID al string del token normalizado."""
-        raw = self._llm.detokenize([token_id])
-        return normalize_token(raw.decode("utf-8", errors="replace"))
+        return self._vocab_table[token_id]
 
     @property
     def vocab_size(self) -> int:
@@ -216,15 +216,7 @@ class LlamaCppBackend(LLMBackend):
         k = min(TOP_K, len(arr))
         top_idx = np.argpartition(lp, -k)[-k:]            # O(V) — sin sort completo
         top_idx = top_idx[np.argsort(lp[top_idx])[::-1]]  # ordena solo k items
-        return [
-            (
-                normalize_token(
-                    self._llm.detokenize([int(i)]).decode("utf-8", errors="replace")
-                ),
-                float(lp[i]),
-            )
-            for i in top_idx
-        ]
+        return [(self._vocab_table[int(i)], float(lp[i])) for i in top_idx]
 
     def batch_top_tokens(self, text: str) -> Optional[List[List[Tuple[str, float]]]]:
         """
