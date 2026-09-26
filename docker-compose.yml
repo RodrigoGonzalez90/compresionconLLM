@@ -4,6 +4,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        LLAMA_BUILD: ${LLAMA_BUILD:-native}   # generic = mismos logits en x86 y ARM (~8x más lento) · native = rápido
     image: meshstatic:latest
     container_name: meshstatic-${NODE_ID}
     ports:
