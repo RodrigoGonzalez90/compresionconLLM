@@ -196,10 +196,22 @@ class LMEncoder:
         else:
             tok_pairs = [(c, -1) for c in texto]
 
-        for tok, tok_id in tok_pairs:
+        # ── Teacher forcing: una sola forward pass para todo el texto ──────────
+        # Calcula distribuciones para todas las posiciones en paralelo.
+        # Si falla (backend sin soporte o error), cae al camino secuencial.
+        batch_tops: Optional[List] = None
+        if hasattr(self.backend, "batch_top_tokens"):
+            batch_tops = self.backend.batch_top_tokens(texto)
+            if batch_tops is not None and len(batch_tops) < len(tok_pairs):
+                log.debug("batch_top_tokens: desalineación (%d vs %d), usando secuencial",
+                          len(batch_tops), len(tok_pairs))
+                batch_tops = None
+        # ──────────────────────────────────────────────────────────────────────
+
+        for i, (tok, tok_id) in enumerate(tok_pairs):
             if not tok:
                 continue
-            top = self.backend.top_tokens(context)
+            top = batch_tops[i] if batch_tops is not None else self.backend.top_tokens(context)
 
             # Buscar el rank del token canónico en el top-K
             matched_rank: Optional[int] = None

@@ -8,7 +8,7 @@ LlamaCppBackend: usa llama-cpp-python directamente, con soporte nativo de logpro
 from __future__ import annotations
 
 import logging
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import httpx
 
@@ -199,6 +199,63 @@ class LlamaCppBackend(LLMBackend):
         except Exception as exc:
             log.warning("LlamaCppBackend.top_tokens error: %s", exc)
             return []
+
+    # ── Teacher forcing ────────────────────────────────────────────────────────
+
+    def _logits_to_top_k(self, score_arr) -> List[Tuple[str, float]]:
+        """
+        Convierte un array de logits crudos [vocab_size] a top-K (tok_str, logprob).
+        Usa log-softmax numericamente estable y argpartition O(V) en vez de sort O(V logV).
+        """
+        import numpy as np
+        arr = np.asarray(score_arr, dtype=np.float32)
+        max_v = float(arr.max())
+        shifted = arr - max_v
+        log_z = float(np.log(np.exp(shifted).sum()))
+        lp = shifted - log_z                               # log-softmax completo
+        k = min(TOP_K, len(arr))
+        top_idx = np.argpartition(lp, -k)[-k:]            # O(V) — sin sort completo
+        top_idx = top_idx[np.argsort(lp[top_idx])[::-1]]  # ordena solo k items
+        return [
+            (
+                normalize_token(
+                    self._llm.detokenize([int(i)]).decode("utf-8", errors="replace")
+                ),
+                float(lp[i]),
+            )
+            for i in top_idx
+        ]
+
+    def batch_top_tokens(self, text: str) -> Optional[List[List[Tuple[str, float]]]]:
+        """
+        Teacher forcing: una única forward pass para todo el texto.
+
+        Retorna la distribución top-K en cada posición del texto
+        (scores[i] = distribución para predecir el token i).
+        Retorna None si el backend no expone _scores o si ocurre un error;
+        el encoder cae automáticamente al camino secuencial.
+
+        Requiere logits_all=True (ya configurado en __init__).
+        """
+        try:
+            ids = self._llm.tokenize(
+                text.encode("utf-8"), add_bos=True, special=False
+            )
+            n_text = len(ids) - 1          # tokens de texto; BOS no cuenta
+            if n_text <= 0:
+                return None
+            self._llm.eval(ids)            # una sola pasada forward
+            raw = getattr(self._llm, "_scores", None)
+            if raw is None:
+                return None
+            scores = list(raw)             # list de arrays [vocab_size]
+            if len(scores) < n_text:
+                return None
+            # scores[0] = después de BOS = predice tok[0]; scores[i] predice tok[i]
+            return [self._logits_to_top_k(scores[i]) for i in range(n_text)]
+        except Exception as exc:
+            log.debug("batch_top_tokens falló, se usará ruta secuencial: %s", exc)
+            return None
 
 
 def build_backend(backend: str, modelo: str, ollama_host: str) -> LLMBackend:
