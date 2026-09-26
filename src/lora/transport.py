@@ -227,7 +227,7 @@ class LoRaTransport:
         (necesario para registrar el pending ACK).
         """
         if not self._connected:
-            raise RuntimeError("LoRa no conectado")
+            raise RuntimeError("medio no conectado")
 
         data_per_frag = max(1, self.config.max_chunk - 4)
         frags: List[bytes] = [
@@ -319,8 +319,10 @@ class LoRaTransport:
                     if len(hdr) < 4:
                         await asyncio.sleep(0.05)
                         continue
-                    _, _, _, data_len = struct.unpack("BBBB", hdr)
-                    data = await asyncio.to_thread(self._ser.read, data_len)
+                    _, _, total, data_len = struct.unpack("BBBB", hdr)
+                    if total == 0:
+                        data_len = 0   # ACK: el byte 3 es el resultado CRC, no una longitud
+                    data = await asyncio.to_thread(self._ser.read, data_len) if data_len else b""
                     self._process_frame(hdr + data, 0)
 
             except asyncio.CancelledError:

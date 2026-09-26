@@ -23,7 +23,8 @@ class CrearCanalRequest(BaseModel):
     peer_url: str = Field(..., min_length=1,
                           description="URL HTTP (ej: http://192.168.1.50:8000) "
                                       "o dirección LoRa (ej: 2)")
-    tipo:     str = Field("http", pattern="^(http|lora)$")
+    tipo:     str = Field("http", pattern="^(http|radio|lora)$")
+    medio_id: str = Field("", description="Medio de comunicación (canales de radio)")
 
 
 class ActualizarCanalRequest(BaseModel):
@@ -40,7 +41,14 @@ async def listar_canales(request: Request):
 @router.post("", status_code=201)
 async def crear_canal(body: CrearCanalRequest, request: Request):
     gestor = request.app.state.gestor_canales
-    canal  = await gestor.crear(nombre=body.nombre, peer_url=body.peer_url, tipo=body.tipo)
+    if body.tipo != "http":
+        medio_id = body.medio_id or "lora"
+        if not request.app.state.medios.obtener(medio_id):
+            raise HTTPException(status_code=422, detail=f"Medio '{medio_id}' no existe")
+    else:
+        medio_id = ""
+    canal  = await gestor.crear(nombre=body.nombre, peer_url=body.peer_url,
+                                tipo=body.tipo, medio_id=medio_id)
     return canal.to_dict()
 
 

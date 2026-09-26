@@ -206,9 +206,50 @@ textarea:focus{border-color:var(--blue);}
 /* Loading en messages */
 .loading-spin{font-size:22px;animation:spin .8s linear infinite;opacity:.4;}
 
+
+/* ── Medios, sync, corrector ─────────────────────────────────────────────── */
+.medio-card{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);margin-bottom:8px;}
+.medio-ico{font-size:20px;flex-shrink:0;}
+.medio-info{flex:1;min-width:0;}
+.medio-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.medio-sub{font-size:10px;color:var(--muted);font-family:var(--font);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.medio-sub.err{color:var(--red);}
+.medio-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+.medio-dot.ok{background:var(--green);}
+.medio-dot.err{background:var(--red);}
+.medio-btns{display:flex;gap:2px;flex-shrink:0;}
+.tipo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:6px;}
+.tipo-card{padding:12px 8px;border:1px solid var(--border);border-radius:8px;cursor:pointer;text-align:center;background:var(--surface2);font-size:12px;}
+.tipo-card:hover{border-color:var(--blue);}
+.tipo-card .ico{font-size:22px;display:block;margin-bottom:4px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px;}
+.form-grid .fg.full{grid-column:1/-1;}
+.fg .ayuda{font-size:10px;color:var(--muted);margin-top:3px;text-transform:none;letter-spacing:0;}
+.medio-desc{font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:12px;}
+
+.sync-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:11px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;white-space:nowrap;font-family:inherit;flex-shrink:0;}
+.sync-chip.s-ok{border-color:#2e4a2e;background:#1a2a1a;color:var(--green);}
+.sync-chip.s-comp{border-color:#5a4520;background:#2a2215;color:var(--amber);}
+.sync-chip.s-bad{border-color:#5a2525;background:#2a1515;color:var(--red);}
+.sync-hero{border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;line-height:1.6;border:1px solid var(--border);background:var(--surface2);}
+.sync-hero b{display:block;font-size:14px;margin-bottom:4px;}
+.sync-hero.s-ok{border-color:#2e4a2e;background:#1a2a1a;} .sync-hero.s-ok b{color:var(--green);}
+.sync-hero.s-comp{border-color:#5a4520;background:#2a2215;} .sync-hero.s-comp b{color:var(--amber);}
+.sync-hero.s-bad{border-color:#5a2525;background:#2a1515;} .sync-hero.s-bad b{color:var(--red);}
+.sync-cols{font-size:11px;font-family:var(--font);margin-top:4px;}
+.sync-r{display:grid;grid-template-columns:96px 1fr 1fr;gap:2px 10px;padding:5px 0;border-bottom:1px solid var(--border);}
+.sync-r.head{border-bottom:none;padding-bottom:0;}
+.sync-r .h{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em;}
+.sync-r .k{color:var(--muted);}
+.sync-r .v{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.sync-r .v.diff{color:var(--amber);}
+.spell-toggle{background:none;border:1px solid var(--border);border-radius:99px;color:var(--muted);font-size:10px;padding:1px 8px;cursor:pointer;font-family:inherit;}
+.spell-toggle.on{border-color:var(--green);color:var(--green);}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width:640px){
   .hamburger{display:flex;}
+  header{padding:8px 10px;gap:6px;}
   header .badge:not(#nodeBadge){display:none;}
   .enc-badge{display:none;}
   .hint-keyboard{display:none;}
@@ -222,10 +263,29 @@ textarea:focus{border-color:var(--blue);}
   }
   aside.open{transform:translateX(0);}
   .canal-actions{opacity:1;}
+  .canal-act{padding:8px 10px;font-size:14px;}
   .msg-del{color:var(--muted);}
-  .bubble{max-width:90%;}
+  .bubble{max-width:92%;}
   .messages{padding:10px;}
-  .composer{padding:8px 10px;}
+  .composer{padding:8px 10px calc(8px + env(safe-area-inset-bottom));}
+  .composer-row{flex-wrap:wrap;}
+  .composer-row textarea{flex:1 1 100%;font-size:16px;}
+  .composer-row .btn-export,.composer-row .btn-file,.composer-row .btn-send{flex:1 1 0;height:44px;}
+  .chat-header{flex-wrap:wrap;row-gap:6px;padding:8px 10px;}
+  .chat-header-url{display:none;}
+  .spacer{display:none;}
+  .chat-header .sync-chip{margin-left:auto;}
+  .modal{padding:18px 16px;max-width:none;}
+  .form-grid{grid-template-columns:1fr;}
+  .fg input,.fg select{font-size:16px;padding:10px;}
+  .btn-cancel,.btn-ok,.btn-lora,.btn-danger{padding:10px 16px;font-size:13px;}
+  .modal-footer{justify-content:stretch;}
+  .modal-footer button{flex:1 1 auto;}
+  .sync-r{grid-template-columns:1fr 1fr;}
+  .sync-r .k{grid-column:1/-1;}
+  .sync-r.head .h:first-child{display:none;}
+  .toast{white-space:normal;bottom:120px;}
+  .medio-btns .canal-act{padding:8px 10px;}
 }
 @media (min-width:641px){
   .sidebar-backdrop{display:none!important;}
@@ -240,9 +300,9 @@ textarea:focus{border-color:var(--blue);}
   <div class="badge" id="nodeBadge">…</div>
   <div class="enc-badge" id="encBadge">lossless</div>
   <div class="spacer"></div>
-  <div class="lora-chip" id="loraChip" onclick="abrirLoraModal()" title="Configurar LoRa">
+  <div class="lora-chip" id="mediosChip" onclick="abrirMediosModal()" title="Medios de comunicación">
     <div class="ldot"></div>
-    <span class="lora-lbl">LoRa</span>
+    <span class="lora-lbl">Medios</span>
   </div>
   <div class="ws-dot" id="wsDot"></div>
 </header>
@@ -269,6 +329,7 @@ textarea:focus{border-color:var(--blue);}
       <strong id="canalNombre" style="color:var(--muted)">Seleccioná un canal</strong>
       <div class="spacer"></div>
       <span class="chat-header-url" id="canalUrl"></span>
+      <button class="sync-chip" id="syncChip" onclick="abrirSyncModal()" style="display:none"></button>
       <button class="btn-clear-hist" onclick="limpiarHistorial()" title="Borrar todos los mensajes">Limpiar</button>
     </div>
     <div class="messages" id="messages">
@@ -293,6 +354,7 @@ textarea:focus{border-color:var(--blue);}
         <span id="hintCanal">Canal: ninguno</span>
         <span class="hint-sep">|</span>
         <span id="hintEnc">Encoding: lossless</span>
+        <button class="spell-toggle on" id="spellToggle" onclick="toggleSpell()" title="Activar o desactivar el corrector ortográfico">Corrector: sí</button>
         <span class="hint-keyboard"><span class="hint-sep">|</span>Enter envía · Shift+Enter nueva línea</span>
         <span class="char-counter" id="charCounter">
           <span id="charCount">0</span> /
@@ -309,12 +371,17 @@ textarea:focus{border-color:var(--blue);}
   <div class="modal">
     <h3>📡 Nuevo canal</h3>
     <div class="tipo-toggle">
-      <div class="tipo-btn active" id="tipoBtnHttp" onclick="setTipo('http')">🌐 HTTP</div>
-      <div class="tipo-btn" id="tipoBtnLora" onclick="setTipo('lora')">📻 LoRa</div>
+      <div class="tipo-btn active" id="tipoBtnHttp" onclick="setTipo('http')">🌐 HTTP (red)</div>
+      <div class="tipo-btn" id="tipoBtnRadio" onclick="setTipo('radio')">📻 Radio / medio</div>
     </div>
     <div class="fg">
       <label>Nombre del canal</label>
       <input id="mNombre" placeholder="ej: nodo-beta, campo-norte" />
+    </div>
+    <div class="fg" id="fgMedio" style="display:none">
+      <label>Medio de comunicación</label>
+      <select id="mMedio" onchange="onMedioChange()"></select>
+      <div class="ayuda" id="mMedioAyuda" style="font-size:10px;color:var(--muted);margin-top:3px;"></div>
     </div>
     <div class="fg">
       <label id="lblPeerUrl">URL del nodo destino</label>
@@ -347,117 +414,40 @@ textarea:focus{border-color:var(--blue);}
   </div>
 </div>
 
-<!-- ── Modal: configuración LoRa ──────────────────────────────────────── -->
-<div class="overlay" id="loraOverlay">
+<!-- ── Modal: medios de comunicación ──────────────────────────────────── -->
+<div class="overlay" id="mediosOverlay">
   <div class="modal wide">
-    <h3>📻 Configuración LoRa</h3>
-
-    <div class="toggle-row">
-      <label>Habilitar transporte LoRa</label>
-      <label class="toggle">
-        <input type="checkbox" id="loraEnabled">
-        <span class="slider"></span>
-      </label>
-    </div>
-
-    <div class="fg">
-      <label>Puerto serie</label>
-      <div style="display:flex;gap:6px;">
-        <select id="loraPort" style="flex:1;"><option value="">Seleccionar…</option></select>
-        <button class="btn-cancel" onclick="cargarPuertos()" style="white-space:nowrap;padding:7px 10px;">↺</button>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <div class="fg">
-        <label>Baudrate</label>
-        <select id="loraBaud">
-          <option value="9600">9600</option>
-          <option value="19200">19200</option>
-          <option value="38400">38400</option>
-          <option value="57600">57600</option>
-          <option value="115200" selected>115200</option>
-        </select>
-      </div>
-      <div class="fg">
-        <label>Modo</label>
-        <select id="loraModo" onchange="onLoraModoChange()">
-          <option value="at_rylr">AT serial (RYLR896)</option>
-          <option value="transparent">Serial transparente</option>
-          <option value="tcp">TCP/WiFi (XIAO ESP32S3)</option>
-        </select>
-      </div>
-      <div class="fg">
-        <label>Spreading Factor (SF)</label>
-        <select id="loraSF">
-          <option value="7">SF7 — rápido</option>
-          <option value="8">SF8</option>
-          <option value="9" selected>SF9 — equilibrio</option>
-          <option value="10">SF10</option>
-          <option value="11">SF11</option>
-          <option value="12">SF12 — largo alcance</option>
-        </select>
-      </div>
-      <div class="fg">
-        <label>Ancho de banda</label>
-        <select id="loraBW">
-          <option value="7" selected>125 kHz</option>
-          <option value="8">250 kHz</option>
-          <option value="9">500 kHz</option>
-        </select>
-      </div>
-      <div class="fg">
-        <label>Potencia TX (dBm)</label>
-        <input type="number" id="loraPow" min="0" max="20" value="14" />
-      </div>
-      <div class="fg">
-        <label>Max bytes / paquete</label>
-        <input type="number" id="loraChunk" min="20" max="240" value="120" />
-      </div>
-      <div class="fg">
-        <label>Dirección de este nodo</label>
-        <input type="number" id="loraAddr" min="0" max="65535" value="1" />
-      </div>
-      <div class="fg">
-        <label>Network ID</label>
-        <input type="number" id="loraNetId" min="0" max="255" value="18" />
-      </div>
-    </div>
-
-    <!-- Campos TCP (visibles solo en modo TCP) -->
-    <div id="tcpFields" style="display:none;">
-      <hr class="divider">
-      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">
-        Gateway WiFi (XIAO ESP32S3)
-      </div>
-      <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;">
-        <div class="fg" style="margin-bottom:0;">
-          <label>IP del gateway</label>
-          <input id="loraTcpHost" placeholder="ej: 192.168.1.50" />
-        </div>
-        <div class="fg" style="margin-bottom:0;">
-          <label>Puerto</label>
-          <input type="number" id="loraTcpPort" min="1" max="65535" value="9000" style="width:90px;" />
-        </div>
-      </div>
-      <button onclick="abrirFirmwareModal()" style="width:100%;margin-top:12px;padding:9px;border-radius:6px;border:1px dashed var(--lora);background:rgba(249,115,22,.07);color:var(--lora);cursor:pointer;font-size:12px;font-weight:600;">
-        ↓ Descargar firmware para ESP32S3
-      </button>
-    </div>
-
-    <hr class="divider">
-    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Estado actual</div>
-    <div class="lora-status-box" id="loraStatusBox">
-      <div class="lora-status-row"><span class="lora-status-key">Conexión</span><span class="lora-status-val" id="stConn">—</span></div>
-      <div class="lora-status-row"><span class="lora-status-key">Puerto</span><span class="lora-status-val" id="stPort">—</span></div>
-      <div class="lora-status-row"><span class="lora-status-key">RSSI último</span><span class="lora-status-val" id="stRssi">—</span></div>
-      <div class="lora-status-row"><span class="lora-status-key">SNR último</span><span class="lora-status-val" id="stSnr">—</span></div>
-      <div class="lora-status-row"><span class="lora-status-key">Error</span><span class="lora-status-val" id="stErr">—</span></div>
-    </div>
-
+    <h3>📻 Medios de comunicación</h3>
+    <p class="medio-desc">Meshstatic entrega bytes al medio y recibe bytes de él: LoRa, radio RF, Bluetooth, serie o red. Configurá los que tengas y elegí cuál usa cada canal.</p>
+    <div id="mediosList"></div>
     <div class="modal-footer">
-      <button class="btn-cancel" onclick="cerrarLoraModal()">Cancelar</button>
-      <button class="btn-lora" onclick="guardarLoraConfig()">Guardar y conectar</button>
+      <button class="btn-cancel" onclick="cerrarMediosModal()">Cerrar</button>
+      <button class="btn-ok" onclick="abrirMedioForm(null)">＋ Agregar medio</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="medioFormOverlay">
+  <div class="modal wide">
+    <h3 id="medioFormTitulo">Nuevo medio</h3>
+    <div id="medioTipos" class="tipo-grid"></div>
+    <div id="medioForm"></div>
+    <div class="modal-footer" id="medioFormFooter" style="display:none">
+      <button class="btn-cancel" onclick="cerrarMedioForm()">Cancelar</button>
+      <button class="btn-cancel" onclick="guardarMedio(false)">Guardar</button>
+      <button class="btn-lora" id="btnMedioConectar" onclick="guardarMedio(true)">Guardar y conectar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: sincronización del canal ────────────────────────────────── -->
+<div class="overlay" id="syncOverlay">
+  <div class="modal wide">
+    <h3>⚖ Sincronización del canal</h3>
+    <div id="syncBody"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="cerrarSyncModal()">Cerrar</button>
+      <button class="btn-ok" id="btnSyncAhora" onclick="sincronizarActivo()">Sincronizar ahora</button>
     </div>
   </div>
 </div>
@@ -497,6 +487,23 @@ textarea:focus{border-color:var(--blue);}
 <script>
 let nodeId = "", canalActivo = null, ws = null, tipoCanal = "http";
 let canales = [], enviando = false;
+let medios = [], mediosTipos = [], medioForm = null, puertosCache = [];
+let syncPares = {}, syncLocal = null;
+
+// fetch que devuelve {ok, data, msg} con el detalle de error de la API
+async function api(url, opts) {
+  try {
+    const res = await fetch(url, opts);
+    let data = null;
+    try { data = await res.json(); } catch {}
+    if (res.ok) return { ok: true, data };
+    let msg = `Error ${res.status}`;
+    if (data?.detail) msg = Array.isArray(data.detail) ? data.detail.map(d => d.msg).join(" · ") : String(data.detail);
+    return { ok: false, data, msg };
+  } catch {
+    return { ok: false, data: null, msg: "Sin conexión con el servidor" };
+  }
+}
 
 // ── Límite de caracteres (configurable, persiste en localStorage) ───────────
 const MAX_CHARS_DEFAULT = 50_000;
@@ -538,7 +545,9 @@ async function init() {
     document.getElementById("encBadge").textContent = st.backend || "lossless";
     document.getElementById("hintEnc").textContent = "Encoding: " + (st.backend || "lossless");
   }
+  await cargarMedios();
   await cargarCanales();
+  cargarSync();
   const msgs = await fetchJSON("/api/mensajes");
   box.innerHTML = "";
   if (msgs?.length) {
@@ -547,7 +556,7 @@ async function init() {
     box.innerHTML = '<div class="empty"><div class="empty-icon">📡</div><div>Sin mensajes aún</div></div>';
   }
   conectarWS();
-  actualizarLoraChip();
+  setInterval(cargarMedios, 10000);
 }
 
 async function fetchJSON(url, opts) {
@@ -568,6 +577,14 @@ function closeSidebar() {
 }
 
 // ── Canales ────────────────────────────────────────────────────────────────
+function esRadio(c) { return c.tipo !== "http"; }
+function medioDe(c) { return medios.find(m => m.id === (c.medio_id || "lora")); }
+function etiquetaCanal(c) {
+  if (!esRadio(c)) return "HTTP";
+  const m = medioDe(c);
+  return `${m ? m.nombre : (c.medio_id || "LoRa")}`;
+}
+
 async function cargarCanales() {
   canales = await fetchJSON("/api/canales") || [];
   pintarCanales();
@@ -581,12 +598,13 @@ function pintarCanales() {
     return;
   }
   el.innerHTML = canales.map(c => {
-    const esLora = c.tipo === "lora";
-    const dotCls = esLora ? "canal-dot lora" : "canal-dot";
-    const tipTag = esLora
-      ? `<span class="canal-tipo-tag ct-lora">LoRa:${esc(c.peer_url)}</span>`
+    const radio  = esRadio(c);
+    const dotCls = radio ? "canal-dot lora" : "canal-dot";
+    const m      = radio ? medioDe(c) : null;
+    const tipTag = radio
+      ? `<span class="canal-tipo-tag ct-lora">${esc(m?.icono || "📻")} ${esc(etiquetaCanal(c))}${c.peer_url && c.peer_url !== "0" ? ":" + esc(c.peer_url) : ""}</span>`
       : `<span class="canal-tipo-tag ct-http">HTTP</span>`;
-    const urlStr = esLora ? "" : esc(c.peer_url);
+    const urlStr = radio ? "" : esc(c.peer_url);
     return `
     <div class="canal-item${canalActivo?.id===c.id?' active':''}" onclick='selCanalById("${c.id}")'>
       <div class="${dotCls}"></div>
@@ -611,31 +629,48 @@ function selCanalById(id) {
 function selCanal(c) {
   if (!c) return;
   canalActivo = c;
-  const esLora = c.tipo === "lora";
+  const radio = esRadio(c);
   document.getElementById("canalNombre").textContent = c.nombre;
   document.getElementById("canalNombre").style.color = "var(--text)";
-  document.getElementById("canalUrl").textContent = esLora ? `LoRa → addr ${c.peer_url}` : c.peer_url;
-  document.getElementById("hintCanal").textContent = `Canal: ${c.nombre} (${esLora ? "LoRa" : "HTTP"})`;
+  document.getElementById("canalUrl").textContent = radio ? `${etiquetaCanal(c)} → ${c.peer_url}` : c.peer_url;
+  document.getElementById("hintCanal").textContent = `Canal: ${c.nombre} (${etiquetaCanal(c)})`;
   document.getElementById("txtMsg").placeholder = `Mensaje para ${c.nombre}…`;
   pintarCanales();
+  actualizarSyncChip();
 }
 
 // ── Modal nuevo canal ──────────────────────────────────────────────────────
-function setTipo(t) {
+async function setTipo(t) {
   tipoCanal = t;
-  document.getElementById("tipoBtnHttp").className = "tipo-btn" + (t==="http"?" active":"");
-  document.getElementById("tipoBtnLora").className = "tipo-btn" + (t==="lora"?" active lora-active":"");
-  const lbl = document.getElementById("lblPeerUrl");
-  const inp = document.getElementById("mUrl");
-  if (t === "lora") {
-    lbl.textContent = "Dirección LoRa del nodo destino";
-    inp.placeholder = "ej: 2";
-    inp.type = "number";
+  document.getElementById("tipoBtnHttp").className  = "tipo-btn" + (t==="http"?" active":"");
+  document.getElementById("tipoBtnRadio").className = "tipo-btn" + (t==="radio"?" active lora-active":"");
+  document.getElementById("fgMedio").style.display = t === "radio" ? "block" : "none";
+  if (t === "radio") {
+    if (!medios.length) await cargarMedios();
+    document.getElementById("mMedio").innerHTML = medios.map(m =>
+      `<option value="${esc(m.id)}">${esc(m.icono)} ${esc(m.nombre)} — ${esc(m.label)}</option>`).join("");
+    onMedioChange();
   } else {
-    lbl.textContent = "URL del nodo destino";
+    document.getElementById("lblPeerUrl").textContent = "URL del nodo destino";
+    const inp = document.getElementById("mUrl");
     inp.placeholder = "ej: http://localhost:8002";
     inp.type = "text";
   }
+}
+
+function medioConDireccion(m) { return m && (m.tipo === "lora" || m.tipo === "tcp"); }
+
+function onMedioChange() {
+  const m = medios.find(x => x.id === document.getElementById("mMedio").value);
+  const conDir = medioConDireccion(m);
+  document.getElementById("lblPeerUrl").textContent = conDir
+    ? "Dirección del nodo destino (número)" : "Dirección (opcional, 0 = enlace directo)";
+  const inp = document.getElementById("mUrl");
+  inp.type = "number";
+  inp.placeholder = conDir ? "ej: 2" : "0";
+  document.getElementById("mMedioAyuda").textContent = m
+    ? (m.status.connected ? "Medio conectado" : m.enabled ? "Medio con error: " + (m.status.error || "sin conexión") : "Medio deshabilitado: actívalo en ‘Medios’")
+    : "";
 }
 
 function abrirModal() {
@@ -651,14 +686,19 @@ function cerrarModal() {
 
 async function crearCanal() {
   const nombre   = document.getElementById("mNombre").value.trim();
-  const peer_url = document.getElementById("mUrl").value.trim();
+  let   peer_url = document.getElementById("mUrl").value.trim();
+  const medio_id = tipoCanal === "radio" ? document.getElementById("mMedio").value : "";
+  if (tipoCanal === "radio" && !peer_url) peer_url = "0";
   if (!nombre || !peer_url) return;
-  const c = await fetchJSON("/api/canales", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({nombre, peer_url, tipo: tipoCanal})
+  const r = await api("/api/canales", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({nombre, peer_url, tipo: tipoCanal, medio_id})
   });
-  if (c) { canales.push(c); cerrarModal(); selCanal(c); pintarCanales(); }
+  if (!r.ok) { showToast(r.msg, "err"); return; }
+  const c = r.data;
+  canales.push(c); cerrarModal(); selCanal(c); pintarCanales();
+  // Handshake automático al abrir un canal de red
+  if (!esRadio(c)) sincronizarCanal(c, true);
 }
 
 async function delCanal(id) {
@@ -670,6 +710,7 @@ async function delCanal(id) {
     document.getElementById("canalNombre").style.color = "var(--muted)";
     document.getElementById("canalUrl").textContent = "";
     document.getElementById("hintCanal").textContent = "Canal: ninguno";
+    actualizarSyncChip();
   }
   pintarCanales();
 }
@@ -682,7 +723,7 @@ function abrirEditModal(id) {
   document.getElementById("editNombre").value    = c.nombre;
   document.getElementById("editUrl").value       = c.peer_url;
   document.getElementById("editUrlLabel").textContent =
-    c.tipo === "lora" ? "Dirección LoRa" : "URL del nodo destino";
+    esRadio(c) ? "Dirección del nodo destino" : "URL del nodo destino";
   document.getElementById("editOverlay").classList.add("show");
   setTimeout(() => document.getElementById("editNombre").focus(), 50);
 }
@@ -709,6 +750,7 @@ async function guardarEdicion() {
 }
 
 // ── Spell check ───────────────────────────────────────────────────────────
+let _spellOn = (() => { try { return localStorage.getItem("meshstatic_spell") !== "0"; } catch { return true; } })();
 const _spell = {
   timer:   null,
   pending: false,
@@ -817,6 +859,29 @@ async function _spellCheck(texto) {
   }
 }
 
+function _aplicarSpellUI() {
+  const b = document.getElementById("spellToggle");
+  b.classList.toggle("on", _spellOn);
+  b.textContent = "Corrector: " + (_spellOn ? "sí" : "no");
+  document.getElementById("txtMsg").spellcheck = _spellOn;
+}
+
+function toggleSpell() {
+  _spellOn = !_spellOn;
+  try { localStorage.setItem("meshstatic_spell", _spellOn ? "1" : "0"); } catch {}
+  if (!_spellOn) {
+    clearTimeout(_spell.timer);
+    _spell.pending = false;
+    _spell.chips = [];
+    _spellRenderChips();
+    _spellBtnReady();
+  } else {
+    const ta = document.getElementById("txtMsg");
+    if (ta.value.trim()) _spellCheck(ta.value);
+  }
+  _aplicarSpellUI();
+}
+
 // ── Helpers composer ──────────────────────────────────────────────────────
 function onTxtInput(ta) {
   ta.style.height = "auto";
@@ -829,7 +894,7 @@ function onTxtInput(ta) {
   _spellRenderChips();
   clearTimeout(_spell.timer);
   const texto = ta.value;
-  if (texto.trim()) {
+  if (texto.trim() && _spellOn) {
     _spell.timer = setTimeout(() => _spellCheck(texto), 500);
   }
 
@@ -1034,7 +1099,9 @@ async function enviar() {
     if (!res.ok) {
       ta.value = savedTxt;
       onTxtInput(ta);
-      showToast(`Error ${res.status} al enviar`, "err");
+      let msg = `Error ${res.status} al enviar`;
+      try { const e = await res.json(); if (e.detail) msg = String(e.detail); } catch {}
+      showToast(msg, "err");
     }
   } catch {
     ta.value = savedTxt;
@@ -1125,59 +1192,194 @@ function bubbleHTML(msg) {
   </div>`;
 }
 
-// ── LoRa modal ─────────────────────────────────────────────────────────────
-async function abrirLoraModal() {
-  document.getElementById("loraOverlay").classList.add("show");
-  await cargarPuertos();
-  await cargarLoraConfig();
-  await actualizarLoraStatus();
-}
-function cerrarLoraModal() { document.getElementById("loraOverlay").classList.remove("show"); }
-
-async function cargarPuertos() {
-  const puertos = await fetchJSON("/api/lora/puertos") || [];
-  const sel = document.getElementById("loraPort");
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">Seleccionar…</option>' +
-    puertos.map(p => `<option value="${esc(p.port)}">${esc(p.port)} — ${esc(p.desc||'')}</option>`).join("");
-  if (cur) sel.value = cur;
+// ── Medios de comunicación ─────────────────────────────────────────────────
+async function cargarMedios() {
+  const m = await fetchJSON("/api/medios");
+  if (m) medios = m;
+  actualizarMediosChip();
+  const ov = document.getElementById("mediosOverlay");
+  if (ov.classList.contains("show")) pintarMedios();
 }
 
-async function cargarLoraConfig() {
-  const cfg = await fetchJSON("/api/lora/config");
-  if (!cfg) return;
-  document.getElementById("loraEnabled").checked = cfg.enabled;
-  document.getElementById("loraPort").value      = cfg.port;
-  document.getElementById("loraBaud").value      = cfg.baudrate;
-  document.getElementById("loraModo").value      = cfg.modo;
-  document.getElementById("loraSF").value        = cfg.sf;
-  document.getElementById("loraBW").value        = cfg.bw;
-  document.getElementById("loraPow").value       = cfg.tx_power;
-  document.getElementById("loraChunk").value     = cfg.max_chunk;
-  document.getElementById("loraAddr").value      = cfg.address;
-  document.getElementById("loraNetId").value     = cfg.network_id;
-  document.getElementById("loraTcpHost").value   = cfg.tcp_host || "";
-  document.getElementById("loraTcpPort").value   = cfg.tcp_port || 9000;
-  onLoraModoChange();
+function actualizarMediosChip() {
+  const chip = document.getElementById("mediosChip");
+  const on  = medios.filter(m => m.status.connected).length;
+  const err = medios.some(m => m.enabled && !m.status.connected);
+  chip.className = "lora-chip" + (on ? " ok" : err ? " err" : "");
+  chip.querySelector(".lora-lbl").textContent = `Medios ${on}/${medios.length}`;
 }
 
-async function actualizarLoraStatus() {
-  const st = await fetchJSON("/api/lora/status");
-  if (!st) return;
-  const conn = st.connected;
-  document.getElementById("stConn").textContent = conn ? "Conectado" : (st.enabled ? "Desconectado" : "Deshabilitado");
-  document.getElementById("stConn").className = "lora-status-val " + (conn ? "ok" : st.enabled ? "err" : "");
-  document.getElementById("stPort").textContent = st.port || "—";
-  document.getElementById("stRssi").textContent = st.rssi_last != null ? `${st.rssi_last} dBm` : "—";
-  document.getElementById("stSnr").textContent  = st.snr_last  != null ? `${st.snr_last} dB`   : "—";
-  const errEl = document.getElementById("stErr");
-  errEl.textContent = st.error || "—";
-  errEl.className = "lora-status-val " + (st.error ? "err" : "");
+async function abrirMediosModal() {
+  document.getElementById("mediosOverlay").classList.add("show");
+  await cargarMedios();
+  pintarMedios();
+}
+function cerrarMediosModal() { document.getElementById("mediosOverlay").classList.remove("show"); }
+
+function estadoMedio(m) {
+  if (m.status.connected) return { cls: "ok", txt: "Conectado" + (m.status.rssi_last != null ? ` · ${m.status.rssi_last} dBm` : "") };
+  if (m.enabled)          return { cls: "err", txt: "Error: " + (m.status.error || "sin conexión") };
+  return { cls: "", txt: "Deshabilitado" };
 }
 
-function onLoraModoChange() {
-  const modo = document.getElementById("loraModo").value;
-  document.getElementById("tcpFields").style.display = modo === "tcp" ? "block" : "none";
+function pintarMedios() {
+  const el = document.getElementById("mediosList");
+  if (!medios.length) { el.innerHTML = '<div class="no-canales">Sin medios configurados.</div>'; return; }
+  el.innerHTML = medios.map(m => {
+    const e = estadoMedio(m);
+    return `<div class="medio-card">
+      <div class="medio-ico">${esc(m.icono)}</div>
+      <div class="medio-info">
+        <div class="medio-name">${esc(m.nombre)}</div>
+        <div class="medio-sub ${e.cls}">${esc(m.label)} · ${esc(e.txt)}</div>
+      </div>
+      <div class="medio-dot ${e.cls}"></div>
+      <div class="medio-btns">
+        <button class="canal-act" onclick="toggleMedio('${m.id}')" title="${m.enabled ? 'Deshabilitar' : 'Habilitar y conectar'}">${m.enabled ? '⏻' : '▶'}</button>
+        <button class="canal-act" onclick="abrirMedioForm('${m.id}')" title="Editar">✏</button>
+        ${m.incorporado ? '' : `<button class="canal-act del" onclick="eliminarMedio('${m.id}')" title="Eliminar">✕</button>`}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function toggleMedio(id) {
+  const m = medios.find(x => x.id === id);
+  if (!m) return;
+  const r = await api(`/api/medios/${id}`, {
+    method: "PATCH", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ enabled: !m.enabled })
+  });
+  if (!r.ok) showToast(r.msg, "err");
+  else if (r.data.enabled && !r.data.status.connected) showToast(`${r.data.nombre}: ${r.data.status.error || "no se pudo conectar"}`, "err");
+  await cargarMedios();
+}
+
+async function eliminarMedio(id) {
+  const m = medios.find(x => x.id === id);
+  if (!m || !confirm(`¿Eliminar el medio "${m.nombre}"?`)) return;
+  const r = await api(`/api/medios/${id}`, { method: "DELETE" });
+  if (!r.ok) { showToast(r.msg, "err"); return; }
+  await cargarMedios();
+}
+
+async function abrirMedioForm(id) {
+  if (!mediosTipos.length) mediosTipos = await fetchJSON("/api/medios/tipos") || [];
+  puertosCache = await fetchJSON("/api/lora/puertos") || [];
+  document.getElementById("medioFormOverlay").classList.add("show");
+  if (id) {
+    const m = medios.find(x => x.id === id);
+    medioForm = { id, tipo: m.tipo, nombre: m.nombre, valores: m.params };
+    document.getElementById("medioFormTitulo").textContent = "Editar medio";
+    document.getElementById("medioTipos").style.display = "none";
+    renderMedioForm();
+  } else {
+    medioForm = { id: null, tipo: null, nombre: "", valores: {} };
+    document.getElementById("medioFormTitulo").textContent = "Nuevo medio";
+    document.getElementById("medioForm").innerHTML = "";
+    document.getElementById("medioFormFooter").style.display = "none";
+    const g = document.getElementById("medioTipos");
+    g.style.display = "grid";
+    g.innerHTML = mediosTipos.map(t =>
+      `<div class="tipo-card" onclick="elegirTipoMedio('${t.tipo}')"><span class="ico">${esc(t.icono)}</span>${esc(t.label)}</div>`).join("");
+  }
+}
+function cerrarMedioForm() { document.getElementById("medioFormOverlay").classList.remove("show"); }
+
+function elegirTipoMedio(tipo) {
+  const t = mediosTipos.find(x => x.tipo === tipo);
+  medioForm.tipo = tipo;
+  medioForm.nombre = t.label;
+  medioForm.valores = Object.fromEntries(t.campos.map(c => [c.k, c.default]));
+  document.getElementById("medioTipos").style.display = "none";
+  renderMedioForm();
+}
+
+function campoHTML(c, val) {
+  const id = "f_" + c.k;
+  let inp;
+  if (c.tipo === "select") {
+    inp = `<select id="${id}" onchange="aplicarVisibilidadMedio()">${c.opciones.map(o =>
+      `<option value="${esc(o.v)}"${o.v === val ? " selected" : ""}>${esc(o.t)}</option>`).join("")}</select>`;
+  } else if (c.tipo === "puerto") {
+    inp = `<input id="${id}" list="dlPuertos" value="${esc(val)}" placeholder="COM3 · /dev/ttyUSB0" autocomplete="off">
+      <datalist id="dlPuertos">${puertosCache.filter(p => p.port).map(p =>
+        `<option value="${esc(p.port)}">${esc(p.desc || "")}</option>`).join("")}</datalist>`;
+  } else if (c.tipo === "number") {
+    inp = `<input id="${id}" type="number" value="${esc(val)}"${c.min != null ? ` min="${c.min}"` : ""}${c.max != null ? ` max="${c.max}"` : ""} step="any">`;
+  } else {
+    inp = `<input id="${id}" value="${esc(val)}" autocomplete="off">`;
+  }
+  return `<div class="fg" data-k="${c.k}"><label>${esc(c.label)}</label>${inp}${c.ayuda ? `<div class="ayuda">${esc(c.ayuda)}</div>` : ""}</div>`;
+}
+
+function renderMedioForm() {
+  const t = mediosTipos.find(x => x.tipo === medioForm.tipo);
+  const v = medioForm.valores;
+  document.getElementById("medioForm").innerHTML =
+    `<p class="medio-desc">${esc(t.icono)} ${esc(t.desc)}</p>
+     <div class="fg"><label>Nombre</label><input id="f__nombre" value="${esc(medioForm.nombre)}"></div>
+     <div class="form-grid">${t.campos.map(c => campoHTML(c, v[c.k] ?? c.default)).join("")}</div>
+     <div id="medioFw"></div>`;
+  document.getElementById("medioFormFooter").style.display = "flex";
+  aplicarVisibilidadMedio();
+}
+
+// En LoRa, los campos de serial y de gateway TCP dependen de la conexión elegida
+function aplicarVisibilidadMedio() {
+  if (medioForm?.tipo !== "lora") return;
+  const modo = document.getElementById("f_modo")?.value;
+  const tcp = modo === "tcp";
+  document.querySelectorAll("#medioForm .fg[data-k]").forEach(el => {
+    const k = el.dataset.k;
+    if (k === "tcp_host" || k === "tcp_port") el.style.display = tcp ? "" : "none";
+    if (k === "port" || k === "baudrate" || k === "network_id") el.style.display = tcp ? "none" : "";
+  });
+  document.getElementById("medioFw").innerHTML = tcp
+    ? `<button onclick="abrirFirmwareModal()" style="width:100%;margin-top:6px;padding:10px;border-radius:6px;border:1px dashed var(--lora);background:rgba(249,115,22,.07);color:var(--lora);cursor:pointer;font-size:12px;font-weight:600;">↓ Descargar firmware para ESP32S3</button>`
+    : "";
+}
+
+function leerParamsMedio() {
+  const t = mediosTipos.find(x => x.tipo === medioForm.tipo);
+  const params = {};
+  for (const c of t.campos) {
+    const el = document.getElementById("f_" + c.k);
+    if (!el) continue;
+    params[c.k] = c.tipo === "number" ? (el.value === "" ? c.default : +el.value) : el.value.trim();
+  }
+  return params;
+}
+
+async function guardarMedio(conectar) {
+  const nombre = document.getElementById("f__nombre").value.trim();
+  const params = leerParamsMedio();
+  const btn = document.getElementById("btnMedioConectar");
+  btn.disabled = true;
+  let r;
+  if (medioForm.id) {
+    r = await api(`/api/medios/${medioForm.id}`, {
+      method: "PATCH", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ nombre, params, ...(conectar ? { enabled: true } : {}) })
+    });
+  } else {
+    r = await api("/api/medios", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ tipo: medioForm.tipo, nombre, params })
+    });
+    if (r.ok && conectar) {
+      r = await api(`/api/medios/${r.data.id}`, {
+        method: "PATCH", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ enabled: true })
+      });
+    }
+  }
+  btn.disabled = false;
+  if (!r.ok) { showToast(r.msg, "err"); return; }
+  cerrarMedioForm();
+  if (r.data.enabled && !r.data.status.connected) showToast(`${r.data.nombre}: ${r.data.status.error || "no se pudo conectar"}`, "err");
+  else showToast(`Medio "${r.data.nombre}" guardado`, "ok");
+  await cargarMedios();
 }
 
 function abrirFirmwareModal() {
@@ -1189,7 +1391,7 @@ function cerrarFirmwareModal() {
 }
 
 async function descargarFirmware() {
-  const ssid     = document.getElementById("fwSSID").value.trim();
+  const ssid     = document.getElementById("fwSsid").value.trim();
   const password = document.getElementById("fwPass").value;
   if (!ssid) { showToast("Ingresá el nombre de la red WiFi (SSID)", "err"); return; }
   const url = `/api/firmware/xiao-esp32s3?ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(password)}`;
@@ -1202,37 +1404,115 @@ async function descargarFirmware() {
   cerrarFirmwareModal();
 }
 
-async function guardarLoraConfig() {
-  const body = {
-    enabled:    document.getElementById("loraEnabled").checked,
-    port:       document.getElementById("loraPort").value,
-    baudrate:   +document.getElementById("loraBaud").value,
-    modo:       document.getElementById("loraModo").value,
-    sf:         +document.getElementById("loraSF").value,
-    bw:         +document.getElementById("loraBW").value,
-    tx_power:   +document.getElementById("loraPow").value,
-    max_chunk:  +document.getElementById("loraChunk").value,
-    address:    +document.getElementById("loraAddr").value,
-    network_id: +document.getElementById("loraNetId").value,
-    tcp_host:   document.getElementById("loraTcpHost").value.trim(),
-    tcp_port:   +document.getElementById("loraTcpPort").value,
-  };
-  const btn = document.querySelector(".btn-lora");
-  btn.textContent = "Conectando…"; btn.disabled = true;
-  const res = await fetchJSON("/api/lora/config", {
-    method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
-  });
-  btn.textContent = "Guardar y conectar"; btn.disabled = false;
-  if (res) { await actualizarLoraStatus(); actualizarLoraChip(); }
+// ── Sincronización numérica del canal ──────────────────────────────────────
+async function cargarSync() {
+  const d = await fetchJSON("/api/sync/estado");
+  if (d) { syncLocal = d.local; syncPares = d.pares || {}; }
+  actualizarSyncChip();
 }
 
-async function actualizarLoraChip() {
-  const st = await fetchJSON("/api/lora/status");
-  const chip = document.getElementById("loraChip");
-  if (!st) return;
-  chip.className = "lora-chip" + (st.connected ? " ok" : st.enabled && st.error ? " err" : "");
-  chip.querySelector(".lora-lbl").textContent = st.connected
-    ? `LoRa SF${st.sf}` : st.enabled ? "LoRa (error)" : "LoRa";
+function syncDe(c) { return c && !esRadio(c) ? syncPares[c.peer_url] : null; }
+
+function syncResumen(c) {
+  if (!c) return null;
+  if (esRadio(c)) return { cls: "", txt: "📻 Radio: sin handshake" };
+  const r = syncDe(c);
+  if (!r) return { cls: "", txt: "🔄 Sin verificar" };
+  if (r.modo === "rapido")       return { cls: "s-ok",   txt: "✔ Sincronizado" };
+  if (r.modo === "compensado")   return { cls: "s-comp", txt: `⚖ Compensado · +${r.costo_pct ?? "?"}%` };
+  return { cls: "s-bad", txt: "✖ No compatible" };
+}
+
+function actualizarSyncChip() {
+  const chip = document.getElementById("syncChip");
+  const res = syncResumen(canalActivo);
+  if (!res) { chip.style.display = "none"; return; }
+  chip.style.display = "inline-flex";
+  chip.className = "sync-chip " + res.cls;
+  chip.textContent = res.txt;
+}
+
+function fmtFecha(ts) { return ts ? new Date(ts * 1000).toLocaleString() : "—"; }
+
+function syncColumnas(local, rem) {
+  const filas = [["Arquitectura", "arch"], ["llama.cpp", "llama"], ["Modelo", "modelo"], ["Huella", "fp"]];
+  return `<div class="sync-cols">
+    <div class="sync-r head"><span class="h"></span><span class="h">Este nodo</span><span class="h">Par</span></div>` +
+    filas.map(([lbl, k]) => {
+      const a = local?.[k] ?? "—", b = rem?.[k] ?? "—";
+      const diff = a !== b;
+      return `<div class="sync-r"><span class="k">${lbl}</span><span class="v" title="${esc(a)}">${esc(a)}</span><span class="v${diff ? " diff" : ""}" title="${esc(b)}">${esc(b)}</span></div>`;
+    }).join("") + `</div>`;
+}
+
+function syncDetalleHTML(c) {
+  if (esRadio(c)) {
+    return `<div class="sync-hero"><b>📻 Canal de radio (${esc(etiquetaCanal(c))})</b>
+      El handshake numérico todavía no viaja por radio: se asume que ambos nodos son idénticos
+      (mismo modelo y misma arquitectura). Si el par difiriera, el CRC de cada mensaje lo detecta
+      y el estado queda en <i>error de recepción</i>. Para verificar el par, usá un canal HTTP.</div>`;
+  }
+  const r = syncDe(c);
+  if (!r) {
+    return `<div class="sync-hero"><b>🔄 Sin verificar</b>
+      Todavía no se hizo el handshake con este par. Se hace solo en el primer envío, o ahora con el botón.</div>`;
+  }
+  const cols = syncColumnas(syncLocal, r.remoto);
+  const cuando = `<div class="lora-status-row" style="margin-top:10px"><span class="lora-status-key">Verificado</span><span class="lora-status-val">${esc(fmtFecha(r.ts))}</span></div>`;
+  if (r.modo === "rapido") {
+    return `<div class="sync-hero s-ok"><b>✔ Sincronizados (par idéntico)</b>
+      Mismo modelo y misma huella numérica. Se comprime al máximo, sin costo extra.</div>${cols}${cuando}`;
+  }
+  if (r.modo === "compensado") {
+    return `<div class="sync-hero s-comp"><b>⚖ Sincronizados con compensación</b>
+      Las huellas difieren (por ejemplo x86 vs ARM): los logits no son idénticos. El emisor evita
+      usar el ranking cuando la ventaja entre candidatos es menor que ${esc(r.gap_min)} y envía ese token completo.
+      El resultado sigue siendo lossless, a cambio de menos compresión.</div>
+      ${cols}
+      <div class="lora-status-box" style="margin-top:10px">
+        <div class="lora-status-row"><span class="lora-status-key">Discrepancia medida (δ)</span><span class="lora-status-val">${esc(r.delta)}</span></div>
+        <div class="lora-status-row"><span class="lora-status-key">Ventaja mínima exigida</span><span class="lora-status-val">${esc(r.gap_min)}</span></div>
+        <div class="lora-status-row"><span class="lora-status-key">Costo estimado</span><span class="lora-status-val err">+${esc(r.costo_pct ?? "?")}% de tamaño</span></div>
+        <div class="lora-status-row"><span class="lora-status-key">Muestra</span><span class="lora-status-val">${esc(r.muestra_tokens ?? "—")} tokens</span></div>
+      </div>${cuando}`;
+  }
+  return `<div class="sync-hero s-bad"><b>✖ No es posible sincronizar</b>
+    Motivo: ${esc(r.motivo || "perfiles incompatibles")}. Con este par los mensajes se envían en
+    <b style="display:inline;font-size:inherit;color:inherit">texto plano UTF-8, sin compresión</b>.
+    Para comprimir, ambos nodos deben usar el mismo modelo y versión de formato.</div>${cols}${cuando}`;
+}
+
+function abrirSyncModal() {
+  if (!canalActivo) return;
+  document.getElementById("syncBody").innerHTML = syncDetalleHTML(canalActivo);
+  document.getElementById("btnSyncAhora").style.display = esRadio(canalActivo) ? "none" : "";
+  document.getElementById("syncOverlay").classList.add("show");
+}
+function cerrarSyncModal() { document.getElementById("syncOverlay").classList.remove("show"); }
+
+async function sincronizarCanal(c, silencioso) {
+  const r = await api(`/api/sync/canal/${c.id}`, { method: "POST" });
+  if (r.ok) {
+    syncPares[c.peer_url] = r.data;
+    if (!syncLocal) await cargarSync();
+    if (!silencioso) showToast("Sincronizado", "ok");
+  } else if (!silencioso) {
+    showToast("No se pudo sincronizar: " + r.msg, "err");
+  }
+  actualizarSyncChip();
+  return r;
+}
+
+async function sincronizarActivo() {
+  if (!canalActivo) return;
+  const btn = document.getElementById("btnSyncAhora");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin-icon"></span>';
+  const r = await sincronizarCanal(canalActivo, false);
+  btn.disabled = false;
+  btn.textContent = "Sincronizar ahora";
+  const body = document.getElementById("syncBody");
+  body.innerHTML = (r.ok ? "" : `<div class="sync-hero s-bad"><b>No se pudo sincronizar</b>${esc(r.msg)}</div>`) + syncDetalleHTML(canalActivo);
 }
 
 // ── WebSocket ──────────────────────────────────────────────────────────────
@@ -1256,10 +1536,11 @@ function esc(s) {
 }
 
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape") { cerrarModal(); cerrarEditModal(); cerrarLoraModal(); cerrarFirmwareModal(); closeSidebar(); }
+  if (e.key === "Escape") { cerrarModal(); cerrarEditModal(); cerrarMediosModal(); cerrarMedioForm(); cerrarSyncModal(); cerrarFirmwareModal(); closeSidebar(); }
 });
 
 init();
+_aplicarSpellUI();
 _updateCharCounter(0);   // inicializar contador y mostrar límite al cargar
 </script>
 </body>

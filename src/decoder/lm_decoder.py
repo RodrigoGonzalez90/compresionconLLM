@@ -23,7 +23,7 @@ import zlib
 from dataclasses import dataclass
 from typing import Iterator, List, Tuple
 
-from src.llm_backend import LLMBackend, TOP_K, normalize_token
+from src.llm_backend import BLOCK_TOKENS, LLMBackend, TOP_K, normalize_token
 
 log = logging.getLogger(__name__)
 
@@ -152,39 +152,62 @@ class LMDecoder:
         self.backend.reset()  # KV cache limpio → mismo estado que el encoder
 
         it = _byte_iter(payload)
-        context  = ""
-        texto    = ""
+        raw    = bytearray()
         rangos: List[int] = []
+        by_ids = hasattr(self.backend, "start_block")
 
         try:
-            for _ in range(n_tokens):
-                rank, oov_id, oov_str = _decode_rank(it, self._id_bits)
-                rangos.append(rank)
+            if by_ids:
+                top: List[Tuple[int, float]] = []
+                for k in range(n_tokens):
+                    if k % BLOCK_TOKENS == 0:
+                        top = self.backend.start_block()
+                    rank, oov_id, oov_str = _decode_rank(it, self._id_bits)
+                    rangos.append(rank)
 
-                # SIEMPRE llamamos top_tokens para que el KV cache evolucione
-                # igual que en el encoder (que llama top_tokens para cada token,
-                # sea rank o OOV). Sin esto el KV cache diverge desde el primer OOV.
-                top = self._top_tokens(context)
-
-                if rank >= TOP_K:
-                    if oov_id >= 0:
-                        tok = self.backend.id_to_token(oov_id) or ""
+                    if rank >= TOP_K:
+                        tid = oov_id
                     else:
-                        tok = oov_str
-                elif rank < len(top):
-                    tok = top[rank]
-                elif top:
-                    tok = top[-1]
-                else:
-                    tok = " "
+                        tid = top[min(rank, len(top) - 1)][0]
 
-                context += tok
-                texto   += tok
+                    if tid >= 0:
+                        raw += self.backend.id_to_bytes(tid)
+                    else:
+                        raw += oov_str.encode("utf-8")
+
+                    last_in_block = (k + 1) % BLOCK_TOKENS == 0
+                    if tid >= 0 and not last_in_block and k + 1 < n_tokens:
+                        top = self.backend.advance(tid)
+            else:
+                context = ""
+                for _ in range(n_tokens):
+                    rank, oov_id, oov_str = _decode_rank(it, self._id_bits)
+                    rangos.append(rank)
+
+                    # SIEMPRE llamamos top_tokens para que el KV cache evolucione
+                    # igual que en el encoder (que llama top_tokens para cada token).
+                    top_s = self._top_tokens(context)
+
+                    if rank >= TOP_K:
+                        if oov_id >= 0:
+                            tok = self.backend.id_to_token(oov_id) or ""
+                        else:
+                            tok = oov_str
+                    elif rank < len(top_s):
+                        tok = top_s[rank]
+                    elif top_s:
+                        tok = top_s[-1]
+                    else:
+                        tok = " "
+
+                    context += tok
+                    raw += tok.encode("utf-8")
 
         except StopIteration:
             pass
 
-        crc_actual = zlib.crc32(texto.encode("utf-8")) & 0xFFFFFFFF
+        texto = bytes(raw).decode("utf-8", errors="replace")
+        crc_actual = zlib.crc32(bytes(raw)) & 0xFFFFFFFF
         crc_ok     = (crc_actual == crc_expected)
 
         if not crc_ok:

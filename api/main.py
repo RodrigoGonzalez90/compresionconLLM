@@ -19,6 +19,8 @@ from src.channels.manager import GestorCanales
 from src.encoder.lm_encoder import LMEncoder
 from src.decoder.lm_decoder import LMDecoder
 from src.llm_backend import build_backend
+from src.sync import Sincronizador
+from src.medios import MedioManager
 from src.lora.config import LoRaConfig
 from src.lora.transport import LoRaTransport
 from api.store import MensajeStore
@@ -30,6 +32,8 @@ from api.routes import lora as lora_router
 from api.routes import firmware as firmware_router
 from api.routes import spellcheck as spellcheck_router
 from api.routes import archivo as archivo_router
+from api.routes import sync as sync_router
+from api.routes import medios as medios_router
 from api.routes.ws import manager as ws_manager
 
 WEB_PATH = ROOT / "web"
@@ -54,27 +58,29 @@ async def lifespan(app: FastAPI):
     lm_encoder = LMEncoder(backend=llm_backend)
     lm_decoder = LMDecoder(backend=llm_backend)
     store      = MensajeStore()
+    sync       = Sincronizador(llm_backend) if hasattr(llm_backend, "start_block") else None
 
     # ── LoRa transport ────────────────────────────────────────────────────────
     lora_cfg       = LoRaConfig.load()
     lora_transport = LoRaTransport(lora_cfg)
 
-    # Callback: cuando llega un mensaje LoRa, decodificarlo y guardarlo
-    def _lora_on_recv(payload: bytes, src_addr: int, lora_msg_id: int) -> None:
-        asyncio.create_task(_handle_lora_recv(payload, src_addr, lora_msg_id,
-                                              lm_decoder, store, node_id,
-                                              lora_transport))
+    # Cada medio (LoRa, RF, Bluetooth...) usa los mismos callbacks de recepción y ACK
+    def _wire(medio) -> None:
+        tr = medio.transporte
 
-    lora_transport.on_receive(_lora_on_recv)
+        def _on_recv(payload: bytes, src_addr: int, lora_msg_id: int) -> None:
+            asyncio.create_task(_handle_lora_recv(payload, src_addr, lora_msg_id,
+                                                  lm_decoder, store, node_id, tr, medio))
 
-    # Callback: cuando llega un ACK LoRa, actualizar el estado del mensaje
-    def _lora_on_ack(db_msg_id: str, crc_ok: bool) -> None:
-        asyncio.create_task(_handle_lora_ack(db_msg_id, crc_ok, store))
+        def _on_ack(db_msg_id: str, crc_ok: bool) -> None:
+            asyncio.create_task(_handle_lora_ack(db_msg_id, crc_ok, store))
 
-    lora_transport.on_ack(_lora_on_ack)
+        tr.on_receive(_on_recv)
+        tr.on_ack(_on_ack)
 
-    if lora_cfg.enabled and lora_cfg.port:
-        await lora_transport.connect()
+    medios = MedioManager(lora_transport, on_new=_wire)
+    _wire(medios.obtener("lora"))
+    await medios.conectar_habilitados()
 
     app.state.node_id        = node_id
     app.state.own_url        = own_url
@@ -83,12 +89,14 @@ async def lifespan(app: FastAPI):
     app.state.lm_decoder     = lm_decoder
     app.state.gestor_canales = gestor_canales
     app.state.store          = store
+    app.state.sync           = sync
+    app.state.medios         = medios
     app.state.lora_transport = lora_transport
 
     print(f"[meshstatic] API lista — http://0.0.0.0:{os.getenv('PORT', 8000)}")
     yield
 
-    await lora_transport.disconnect()
+    await medios.desconectar_todos()
 
 
 async def _handle_lora_recv(
@@ -99,6 +107,7 @@ async def _handle_lora_recv(
     store: MensajeStore,
     node_id: str,
     lora_transport,
+    medio=None,
 ) -> None:
     """Procesa un mensaje recibido por LoRa: decodifica, persiste y envía ACK."""
     decoded = decoder.decodificar(payload)
@@ -113,8 +122,8 @@ async def _handle_lora_recv(
         ratio_pct=round((1 - len(payload) / max(bytes_orig, 1)) * 100, 1),
         n_tokens=len(decoded.ids_tokens),
         confianza_ml=decoded.confianza_modelo,
-        encoding=f"lora/{decoded.modo}",
-        nodo_origen=f"lora:{src_addr}",
+        encoding=f"{medio.tipo if medio else 'lora'}/{decoded.modo}",
+        nodo_origen=f"{medio.nombre if medio else 'lora'}:{src_addr}",
         nodo_destino=node_id,
         direccion="entrante",
         timestamp=datetime.now(timezone.utc),
@@ -162,6 +171,8 @@ app.include_router(lora_router.router)
 app.include_router(firmware_router.router)
 app.include_router(spellcheck_router.router)
 app.include_router(archivo_router.router)
+app.include_router(sync_router.router)
+app.include_router(medios_router.router)
 
 if WEB_PATH.exists():
     app.mount("/static", StaticFiles(directory=str(WEB_PATH)), name="static")

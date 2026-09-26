@@ -8,13 +8,18 @@ LlamaCppBackend: usa llama-cpp-python directamente, con soporte nativo de logpro
 from __future__ import annotations
 
 import logging
-from typing import List, Optional, Tuple
+import os
+from typing import List, Tuple
 
 import httpx
 
 log = logging.getLogger(__name__)
 
 TOP_K = 64
+
+# Tokens por bloque de contexto. Debe ser < n_ctx (512) y es parte del formato:
+# encoder y decoder deben usar el mismo valor.
+BLOCK_TOKENS = 448
 
 # Mapeo nombre-ollama → (repo HuggingFace, filename GGUF)
 GGUF_MODELS: dict[str, tuple[str, str]] = {
@@ -124,22 +129,27 @@ class LlamaCppBackend(LLMBackend):
                 f"Modelo '{modelo}' no mapeado. Opciones: {list(GGUF_MODELS)}"
             )
         repo_id, filename = entry
+        n_threads = int(os.getenv("LLM_THREADS", "0")) or min(4, os.cpu_count() or 1)
         log.info("LlamaCpp: cargando %s / %s ...", repo_id, filename)
         self._llm = Llama.from_pretrained(
             repo_id=repo_id,
             filename=filename,
             cache_dir=cache_dir,
             n_ctx=512,
-            n_threads=1,   # determinismo: mismo orden de ops en encoder y decoder
+            # Medido: los logits son idénticos bit a bit con 1/2/4/8 hilos; 4 hilos ≈ 2.2x más rápido.
+            n_threads=n_threads,
+            n_threads_batch=n_threads,
             logits_all=True,
             verbose=False,
         )
         log.info("LlamaCpp: modelo listo.")
         n = self._llm.n_vocab()
+        self._vocab_bytes: list[bytes] = [self._llm.detokenize([i]) for i in range(n)]
         self._vocab_table: list[str] = [
-            normalize_token(self._llm.detokenize([i]).decode("utf-8", errors="replace"))
-            for i in range(n)
+            normalize_token(b.decode("utf-8", errors="replace")) for b in self._vocab_bytes
         ]
+        # Qwen no agrega BOS al tokenizar: usamos uno explícito como inicio de bloque
+        self._bos: int = self._llm.token_bos()
         log.info("LlamaCpp: vocab table construida (%d entradas).", n)
 
     def reset(self) -> None:
@@ -176,6 +186,15 @@ class LlamaCppBackend(LLMBackend):
     def vocab_size(self) -> int:
         return self._llm.n_vocab()
 
+    @property
+    def model_id(self) -> str:
+        """Identidad del modelo cargado (archivo GGUF + tamaño) para el handshake."""
+        path = getattr(self._llm, "model_path", "") or ""
+        try:
+            return f"{os.path.basename(path)}:{os.path.getsize(path)}"
+        except OSError:
+            return os.path.basename(path)
+
     def top_tokens(self, context: str) -> List[Tuple[str, float]]:
         try:
             out = self._llm(
@@ -200,54 +219,36 @@ class LlamaCppBackend(LLMBackend):
             log.warning("LlamaCppBackend.top_tokens error: %s", exc)
             return []
 
-    # ── Teacher forcing ────────────────────────────────────────────────────────
+    # ── Camino por IDs (encoder y decoder comparten esta lógica) ───────────────
 
-    def _logits_to_top_k(self, score_arr) -> List[Tuple[str, float]]:
-        """
-        Convierte un array de logits crudos [vocab_size] a top-K (tok_str, logprob).
-        Usa log-softmax numericamente estable y argpartition O(V) en vez de sort O(V logV).
-        """
+    def _row_top(self, row) -> List[Tuple[int, float]]:
+        """Logits [vocab] → top-K (token_id, logprob) ordenado desc. Usado por encoder y decoder."""
         import numpy as np
-        arr = np.asarray(score_arr, dtype=np.float32)
-        max_v = float(arr.max())
-        shifted = arr - max_v
-        log_z = float(np.log(np.exp(shifted).sum()))
-        lp = shifted - log_z                               # log-softmax completo
+        arr = np.asarray(row, dtype=np.float32)
         k = min(TOP_K, len(arr))
-        top_idx = np.argpartition(lp, -k)[-k:]            # O(V) — sin sort completo
-        top_idx = top_idx[np.argsort(lp[top_idx])[::-1]]  # ordena solo k items
-        return [(self._vocab_table[int(i)], float(lp[i])) for i in top_idx]
+        idx = np.argpartition(arr, -k)[-k:]
+        idx = idx[np.argsort(-arr[idx], kind="stable")]
+        m = float(arr[idx[0]])
+        log_z = m + float(np.log(np.exp(arr - m).sum(dtype=np.float64)))
+        return [(int(i), float(arr[i]) - log_z) for i in idx]
 
-    def batch_top_tokens(self, text: str) -> Optional[List[List[Tuple[str, float]]]]:
-        """
-        Teacher forcing: una única forward pass para todo el texto.
+    def _last_row_top(self) -> List[Tuple[int, float]]:
+        return self._row_top(self._llm.scores[self._llm.n_tokens - 1])
 
-        Retorna la distribución top-K en cada posición del texto
-        (scores[i] = distribución para predecir el token i).
-        Retorna None si el backend no expone _scores o si ocurre un error;
-        el encoder cae automáticamente al camino secuencial.
+    def start_block(self) -> List[Tuple[int, float]]:
+        """Decoder: inicia un bloque (KV limpio + BOS) y devuelve el top-K del primer token."""
+        self._llm.reset()
+        self._llm.eval([self._bos])
+        return self._last_row_top()
 
-        Requiere logits_all=True (ya configurado en __init__).
-        """
-        try:
-            ids = self._llm.tokenize(
-                text.encode("utf-8"), add_bos=True, special=False
-            )
-            n_text = len(ids) - 1          # tokens de texto; BOS no cuenta
-            if n_text <= 0:
-                return None
-            self._llm.eval(ids)            # una sola pasada forward
-            raw = getattr(self._llm, "_scores", None)
-            if raw is None:
-                return None
-            scores = list(raw)             # list de arrays [vocab_size]
-            if len(scores) < n_text:
-                return None
-            # scores[0] = después de BOS = predice tok[0]; scores[i] predice tok[i]
-            return [self._logits_to_top_k(scores[i]) for i in range(n_text)]
-        except Exception as exc:
-            log.debug("batch_top_tokens falló, se usará ruta secuencial: %s", exc)
-            return None
+    def advance(self, token_id: int) -> List[Tuple[int, float]]:
+        """Decoder: agrega un token al contexto y devuelve el top-K del siguiente."""
+        self._llm.eval([token_id])
+        return self._last_row_top()
+
+    def id_to_bytes(self, token_id: int) -> bytes:
+        """Bytes crudos del token (evita perder bytes parciales de UTF-8 multi-token)."""
+        return self._vocab_bytes[token_id]
 
 
 def build_backend(backend: str, modelo: str, ollama_host: str) -> LLMBackend:

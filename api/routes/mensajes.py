@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from api.models import EnviarRequest, EstadoNodo, Mensaje, RecibirRequest, RecibirResponse
 from api.routes.ws import manager as ws_manager
+from api.routes.sync import asegurar_sync
 
 router = APIRouter(prefix="/api")
 
@@ -19,9 +20,21 @@ def _st(request: Request):
 async def enviar(body: EnviarRequest, request: Request):
     st = _st(request)
 
-    paquete  = st.lm_encoder.comprimir(body.texto)
-    peer_url = st.gestor_canales.peer_url_de(body.canal_id or None)
-    destino  = peer_url or "—"
+    peer_url  = st.gestor_canales.peer_url_de(body.canal_id or None)
+    destino   = peer_url or "—"
+    canal_obj = st.gestor_canales.obtener(body.canal_id) if body.canal_id else None
+    usar_radio = canal_obj is not None and canal_obj.tipo != "http"
+
+    # Handshake con el par (solo la primera vez por sesión; el resultado se guarda)
+    sync_rec = None
+    if peer_url and not usar_radio:
+        sync_rec = await asegurar_sync(st, peer_url)
+    modo_sync = sync_rec["modo"] if sync_rec else None
+    paquete  = st.lm_encoder.comprimir(
+        body.texto,
+        gap_min=sync_rec.get("gap_min") if modo_sync == "compensado" else None,
+        force_raw=modo_sync == "incompatible",
+    )
 
     msg = Mensaje(
         texto_original=body.texto,
@@ -44,22 +57,23 @@ async def enviar(body: EnviarRequest, request: Request):
     await st.store.guardar(msg)
     await ws_manager.broadcast("nuevo_mensaje", msg.dict_ui())
 
-    canal_obj = st.gestor_canales.obtener(body.canal_id) if body.canal_id else None
-    usar_lora = canal_obj is not None and canal_obj.tipo == "lora"
-
-    if usar_lora:
-        # ── Envío por LoRa ────────────────────────────────────────────────────
+    if usar_radio:
+        # ── Envío por un medio de radio/serie (LoRa, RF, Bluetooth, ...) ─────
+        medio = st.medios.obtener(canal_obj.medio_id or "lora")
+        if medio is None:
+            await st.store.actualizar(msg.id, estado="error_tx")
+            raise HTTPException(status_code=503, detail=f"Medio '{canal_obj.medio_id}' no existe")
         try:
             dest = int(canal_obj.peer_url)
         except (ValueError, AttributeError):
             dest = 0
         try:
-            lora_msg_id = await st.lora_transport.send(paquete.datos, dest_address=dest)
-            st.lora_transport.register_pending(lora_msg_id, msg.id)
+            lora_msg_id = await medio.transporte.send(paquete.datos, dest_address=dest)
+            medio.transporte.register_pending(lora_msg_id, msg.id)
             await st.store.actualizar(msg.id, estado="transmitido")
         except Exception as exc:
             await st.store.actualizar(msg.id, estado="error_tx")
-            raise HTTPException(status_code=503, detail=f"LoRa TX error: {exc}")
+            raise HTTPException(status_code=503, detail=f"{medio.nombre} TX error: {exc}")
         await ws_manager.broadcast("estado_actualizado", st.store.obtener(msg.id).dict_ui())
 
     elif peer_url:

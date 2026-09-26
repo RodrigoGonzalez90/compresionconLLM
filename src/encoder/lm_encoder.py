@@ -30,7 +30,7 @@ import zlib
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
-from src.llm_backend import LLMBackend, TOP_K, normalize_token
+from src.llm_backend import BLOCK_TOKENS, LLMBackend, TOP_K, normalize_token
 
 log = logging.getLogger(__name__)
 
@@ -54,6 +54,37 @@ def _dynamic_gap(top: List[Tuple[str, float]]) -> float:
     h = -sum((p / s) * math.log(p / s) for p in probs if p > 0)
     t = min(h / _H_MAX, 1.0)   # t ∈ [0, 1]
     return GAP_MIN + t * (GAP_MAX - GAP_MIN)
+
+
+def rank_seguro(top: List[Tuple], rank: int, gap_min: Optional[float] = None) -> bool:
+    """
+    True si el token en `rank` puede codificarse por rank sin riesgo de que el receptor
+    vea otro orden. gap_min=None → nodos idénticos (solo vecino inferior); con gap_min
+    (par de otra arquitectura) también vecino superior y borde del top-K.
+    """
+    req = _dynamic_gap(top) if gap_min is None else max(_dynamic_gap(top), gap_min)
+    lp = top[rank][1]
+    if rank < len(top) - 1 and lp - top[rank + 1][1] < req:
+        return False
+    if gap_min is not None:
+        if rank > 0 and top[rank - 1][1] - lp < req:
+            return False
+        if lp - top[-1][1] < req:
+            return False
+    return True
+
+
+def bits_de_rank(rank: Optional[int], id_bits: int) -> int:
+    """Costo en bits de un token: rank (None = OOV compacto)."""
+    if rank is None:
+        return 5 + id_bits
+    if rank == 0:
+        return 1
+    if rank <= 3:
+        return 4
+    if rank <= 15:
+        return 7
+    return 10
 
 
 @dataclass
@@ -178,14 +209,31 @@ class LMEncoder:
     def _next_token_from_hf(self, text_remaining: str) -> str:
         return self.backend.next_token(text_remaining)
 
-    def comprimir(self, texto: str) -> PaqueteLossless:
+    def comprimir(
+        self,
+        texto: str,
+        gap_min: Optional[float] = None,
+        force_raw: bool = False,
+    ) -> PaqueteLossless:
+        """
+        gap_min: ventaja mínima (logprob) sobre ambos vecinos y sobre el fondo del top-K
+                 para usar rank; se calcula en el handshake con un par de otra arquitectura.
+                 None = nodos idénticos (chequeo estándar).
+        force_raw: omite el LM y emite el paquete raw (par incompatible).
+        """
         t0 = time.perf_counter()
         bytes_orig = len(texto.encode("utf-8"))
+        if force_raw:
+            datos = HDR_RAW + texto.encode("utf-8")
+            return PaqueteLossless(
+                datos=datos, texto_original=texto, rangos=[], bytes_originales=bytes_orig,
+                bytes_transmitidos=len(datos), modo="raw",
+                encode_ms=(time.perf_counter() - t0) * 1000,
+            )
         self.backend.reset()  # KV cache limpio → determinismo
 
         bits: List[int] = []
         rangos: List[int] = []
-        context = ""
         oov_count = 0
 
         # Tokenizar con IDs → boundaries canónicos + IDs para OOV compacto
@@ -195,40 +243,14 @@ class LMEncoder:
             tok_pairs = [(t, -1) for t in self.backend.tokenize_text(texto)]
         else:
             tok_pairs = [(c, -1) for c in texto]
+        tok_pairs = [(t, i) for t, i in tok_pairs if t]
 
-        # ── Teacher forcing: una sola forward pass para todo el texto ──────────
-        # Calcula distribuciones para todas las posiciones en paralelo.
-        # Si falla (backend sin soporte o error), cae al camino secuencial.
-        batch_tops: Optional[List] = None
-        if hasattr(self.backend, "batch_top_tokens"):
-            batch_tops = self.backend.batch_top_tokens(texto)
-            if batch_tops is not None and len(batch_tops) < len(tok_pairs):
-                log.debug("batch_top_tokens: desalineación (%d vs %d), usando secuencial",
-                          len(batch_tops), len(tok_pairs))
-                batch_tops = None
-        # ──────────────────────────────────────────────────────────────────────
-
-        for i, (tok, tok_id) in enumerate(tok_pairs):
-            if not tok:
-                continue
-            top = batch_tops[i] if batch_tops is not None else self.backend.top_tokens(context)
-
-            # Buscar el rank del token canónico en el top-K
-            matched_rank: Optional[int] = None
-            for rank, (tok_str, _) in enumerate(top):
-                if normalize_token(tok_str) == tok:
-                    matched_rank = rank
-                    break
-
-            # Si la ventaja sobre el siguiente candidato es demasiado pequeña,
-            # los dos nodos podrían ver rankings distintos por no-determinismo
-            # de KV cache. En ese caso preferimos OOV.
-            if matched_rank is not None and matched_rank < len(top) - 1:
-                gap       = top[matched_rank][1] - top[matched_rank + 1][1]
-                gap_req   = _dynamic_gap(top)
-                if gap < gap_req:
-                    matched_rank = None
-
+        def emit(matched_rank: Optional[int], top, tok: str, tok_id: int) -> None:
+            nonlocal oov_count
+            # Si la ventaja sobre el vecino es demasiado pequeña, dos nodos podrían ver
+            # rankings distintos por no-determinismo numérico → OOV.
+            if matched_rank is not None and not rank_seguro(top, matched_rank, gap_min):
+                matched_rank = None
             if matched_rank is not None:
                 bits.extend(_encode_rank_bits(matched_rank))
                 rangos.append(matched_rank)
@@ -237,7 +259,32 @@ class LMEncoder:
                 rangos.append(TOP_K)
                 oov_count += 1
 
-            context += tok
+        if hasattr(self.backend, "start_block") and all(i >= 0 for _, i in tok_pairs):
+            # Camino por IDs, idéntico al del decoder (mismas llamadas → mismos logits).
+            # Bloques de BLOCK_TOKENS con contexto propio para no exceder n_ctx.
+            # No se usa teacher forcing: evaluar por lotes da logits distintos (~0.5-1.0)
+            # a los de token a token, y el decoder no puede replicarlos.
+            n = len(tok_pairs)
+            top: List[Tuple[int, float]] = []
+            for k, (tok, tok_id) in enumerate(tok_pairs):
+                if k % BLOCK_TOKENS == 0:
+                    top = self.backend.start_block()
+                matched = next(
+                    (r for r, (tid, _) in enumerate(top) if tid == tok_id), None
+                )
+                emit(matched, top, tok, tok_id)
+                if (k + 1) % BLOCK_TOKENS and k + 1 < n:
+                    top = self.backend.advance(tok_id)
+        else:
+            # Camino por strings (Ollama): una consulta por token.
+            context = ""
+            for tok, tok_id in tok_pairs:
+                top = self.backend.top_tokens(context)
+                matched = next(
+                    (r for r, (s, _) in enumerate(top) if normalize_token(s) == tok), None
+                )
+                emit(matched, top, tok, tok_id)
+                context += tok
 
         if rangos:
             log.debug(

@@ -33,11 +33,14 @@ class Canal:
         peer_url: str,
         canal_id: str | None = None,
         tipo: str = "http",
+        medio_id: str = "",
     ):
         self.id        = canal_id or _uid()
         self.nombre    = nombre
         self.peer_url  = peer_url.rstrip("/") if tipo == "http" else peer_url
         self.tipo      = tipo
+        # Canales de radio: id del medio. El tipo heredado "lora" usa el medio "lora"
+        self.medio_id  = medio_id or ("lora" if tipo == "lora" else "")
         self.creado_en = _now()
         self.activo    = True
 
@@ -47,6 +50,7 @@ class Canal:
             "nombre":    self.nombre,
             "peer_url":  self.peer_url,
             "tipo":      self.tipo,
+            "medio_id":  self.medio_id,
             "creado_en": self.creado_en.isoformat(),
             "activo":    self.activo,
         }
@@ -73,6 +77,7 @@ class GestorCanales:
                         peer_url=item["peer_url"],
                         canal_id=item["id"],
                         tipo=item.get("tipo", "http"),
+                        medio_id=item.get("medio_id", ""),
                     )
                     c.creado_en = datetime.fromisoformat(item["creado_en"])
                     c.activo    = item.get("activo", True)
@@ -110,9 +115,9 @@ class GestorCanales:
 
     # ── CRUD ──────────────────────────────────────────────────────────────────
 
-    async def crear(self, nombre: str, peer_url: str, tipo: str = "http") -> Canal:
+    async def crear(self, nombre: str, peer_url: str, tipo: str = "http", medio_id: str = "") -> Canal:
         async with self._lock:
-            canal = Canal(nombre=nombre, peer_url=peer_url, tipo=tipo)
+            canal = Canal(nombre=nombre, peer_url=peer_url, tipo=tipo, medio_id=medio_id)
             self._canales[canal.id] = canal
             self._save()
             return canal
