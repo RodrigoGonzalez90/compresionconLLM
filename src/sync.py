@@ -23,6 +23,7 @@ import json
 import logging
 import platform
 import time
+import uuid
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -41,6 +42,27 @@ CALIB_TEXT = (
     "probaremos la comunicación por radio entre los dos nodos del proyecto. "
     "El mensaje 42 llegó sin errores: ¿qué opinas del resultado? Todo listo para continuar."
 )
+
+
+_INSTANCIA: Optional[str] = None
+
+
+def instancia_id() -> str:
+    """ID único y persistente de este nodo (identifica al par aunque cambie su IP)."""
+    global _INSTANCIA
+    if _INSTANCIA:
+        return _INSTANCIA
+    f = DATA_DIR / "instance_id"
+    try:
+        if f.exists():
+            _INSTANCIA = f.read_text(encoding="utf-8").strip()
+        else:
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            _INSTANCIA = uuid.uuid4().hex[:16]
+            f.write_text(_INSTANCIA, encoding="utf-8")
+    except Exception:
+        _INSTANCIA = _INSTANCIA or uuid.uuid4().hex[:16]
+    return _INSTANCIA
 
 
 def discrepancia(a: dict, b: dict) -> float:
@@ -84,6 +106,9 @@ class Sincronizador:
             self._cal = {"ids_texto": ids, "pos": pos}
         return self._cal
 
+    def _instancia(self) -> str:
+        return instancia_id()
+
     def perfil(self) -> dict:
         if self._perfil is None:
             cal = self.calibracion()
@@ -101,6 +126,7 @@ class Sincronizador:
                 "arch":   platform.machine(),
                 "llama":  llama_ver,
                 "fp":     hashlib.sha256(orden.encode()).hexdigest()[:16],
+                "instancia": self._instancia(),
             }
         return self._perfil
 
@@ -139,6 +165,8 @@ class Sincronizador:
 
     def evaluar_rapido(self, remoto: dict) -> Optional[dict]:
         """Resultado sin intercambio de calibración, o None si hace falta."""
+        if remoto.get("instancia") and remoto["instancia"] == self.perfil()["instancia"]:
+            return {"modo": "mismo_nodo", "motivo": "el canal apunta a este mismo nodo"}
         if not self.compatible(remoto):
             return {"modo": "incompatible", "motivo": "modelo/formato distinto"}
         if remoto.get("fp") == self.perfil()["fp"]:
@@ -160,6 +188,15 @@ class Sincronizador:
         self.verificados.add(clave)
         self._save()
         return rec
+
+    def migrar(self, viejo: str, nuevo: str) -> None:
+        """El par cambió de dirección: conserva su registro de sync bajo la nueva clave."""
+        if viejo in self.peers:
+            self.peers[nuevo] = self.peers.pop(viejo)
+            if viejo in self.verificados:
+                self.verificados.discard(viejo)
+                self.verificados.add(nuevo)
+            self._save()
 
     def vigente(self, clave: str, remoto: dict) -> Optional[dict]:
         """Registro guardado si sigue valiendo para los perfiles actuales."""

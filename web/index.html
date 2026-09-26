@@ -297,7 +297,7 @@ textarea:focus{border-color:var(--blue);}
 <header>
   <button class="hamburger" id="hamburger" onclick="toggleSidebar()" title="Canales">☰</button>
   <div class="logo">Mesh<span>static</span></div>
-  <div class="badge" id="nodeBadge">…</div>
+  <div class="badge" id="nodeBadge" onclick="abrirNodoModal(false)" title="Cambiar el nombre de este nodo" style="cursor:pointer">…</div>
   <div class="enc-badge" id="encBadge">lossless</div>
   <div class="spacer"></div>
   <div class="lora-chip" id="mediosChip" onclick="abrirMediosModal()" title="Medios de comunicación">
@@ -410,6 +410,23 @@ textarea:focus{border-color:var(--blue);}
     <div class="modal-footer">
       <button class="btn-cancel" onclick="cerrarEditModal()">Cancelar</button>
       <button class="btn-ok" onclick="guardarEdicion()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: nombre del nodo ─────────────────────────────────────────── -->
+<div class="overlay" id="nodoOverlay">
+  <div class="modal">
+    <h3 id="nodoTitulo">Nombre de este nodo</h3>
+    <p class="medio-desc" id="nodoDesc">Así te van a ver los demás nodos. Podés cambiarlo después tocando el nombre arriba.</p>
+    <div class="fg">
+      <label>Nombre</label>
+      <input id="nodoNombre" maxlength="40" placeholder="ej: campo-norte, raspi-cocina" autocomplete="off"
+        onkeydown="if(event.key==='Enter')guardarNodo()">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" id="nodoCancelar" onclick="cerrarNodoModal()">Cancelar</button>
+      <button class="btn-ok" id="btnNodoGuardar" onclick="guardarNodo()">Guardar</button>
     </div>
   </div>
 </div>
@@ -538,6 +555,8 @@ async function init() {
   const box = document.getElementById("messages");
   box.innerHTML = '<div class="empty"><div class="loading-spin">⟳</div><div>Cargando…</div></div>';
 
+  const nd = await fetchJSON("/api/nodo");
+  if (nd && !nd.configurado) abrirNodoModal(true, nd.nombre);
   const st = await fetchJSON("/api/estado");
   if (st) {
     nodeId = st.node_id;
@@ -609,7 +628,7 @@ function pintarCanales() {
     <div class="canal-item${canalActivo?.id===c.id?' active':''}" onclick='selCanalById("${c.id}")'>
       <div class="${dotCls}"></div>
       <div class="canal-info">
-        <div class="canal-name">${esc(c.nombre)}</div>
+        <div class="canal-name">${esc(nombreCanal(c))}</div>
         <div class="canal-url" style="display:flex;align-items:center;gap:4px;margin-top:2px;">
           ${tipTag}<span>${urlStr}</span>
         </div>
@@ -630,7 +649,7 @@ function selCanal(c) {
   if (!c) return;
   canalActivo = c;
   const radio = esRadio(c);
-  document.getElementById("canalNombre").textContent = c.nombre;
+  document.getElementById("canalNombre").textContent = nombreCanal(c);
   document.getElementById("canalNombre").style.color = "var(--text)";
   document.getElementById("canalUrl").textContent = radio ? `${etiquetaCanal(c)} → ${c.peer_url}` : c.peer_url;
   document.getElementById("hintCanal").textContent = `Canal: ${c.nombre} (${etiquetaCanal(c)})`;
@@ -1192,6 +1211,47 @@ function bubbleHTML(msg) {
   </div>`;
 }
 
+// ── Nombre del nodo ────────────────────────────────────────────────────────
+let nodoObligatorio = false;
+
+function abrirNodoModal(primeraVez, sugerido) {
+  nodoObligatorio = !!primeraVez;
+  document.getElementById("nodoTitulo").textContent = primeraVez ? "👋 ¿Cómo se llama este nodo?" : "Nombre de este nodo";
+  document.getElementById("nodoCancelar").style.display = primeraVez ? "none" : "";
+  const inp = document.getElementById("nodoNombre");
+  inp.value = sugerido || nodeId || "";
+  document.getElementById("nodoOverlay").classList.add("show");
+  setTimeout(() => { inp.focus(); inp.select(); }, 50);
+}
+function cerrarNodoModal() {
+  if (nodoObligatorio) return;
+  document.getElementById("nodoOverlay").classList.remove("show");
+}
+async function guardarNodo() {
+  const nombre = document.getElementById("nodoNombre").value.trim();
+  if (!nombre) return;
+  const btn = document.getElementById("btnNodoGuardar");
+  btn.disabled = true;
+  const r = await api("/api/nodo", {
+    method: "PUT", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ nombre })
+  });
+  btn.disabled = false;
+  if (!r.ok) { showToast(r.msg, "err"); return; }
+  nodoObligatorio = false;
+  nodeId = r.data.nombre;
+  document.getElementById("nodeBadge").textContent = nodeId;
+  document.getElementById("nodoOverlay").classList.remove("show");
+  pintarCanales();
+  showToast(`Nodo: ${nodeId}`, "ok");
+}
+
+// Nombre a mostrar: si dos canales (o el propio nodo) se llaman igual, se agrega el ID corto
+function nombreCanal(c) {
+  const repetido = c.nombre === nodeId || canales.some(o => o.id !== c.id && o.nombre === c.nombre);
+  return repetido && c.peer_instancia ? `${c.nombre} · ${c.peer_instancia.slice(0, 4)}` : c.nombre;
+}
+
 // ── Medios de comunicación ─────────────────────────────────────────────────
 async function cargarMedios() {
   const m = await fetchJSON("/api/medios");
@@ -1418,6 +1478,7 @@ function syncResumen(c) {
   if (esRadio(c)) return { cls: "", txt: "📻 Radio: sin handshake" };
   const r = syncDe(c);
   if (!r) return { cls: "", txt: "🔄 Sin verificar" };
+  if (r.modo === "mismo_nodo")   return { cls: "s-bad",  txt: "⚠ Apunta a este mismo nodo" };
   if (r.modo === "rapido")       return { cls: "s-ok",   txt: "✔ Sincronizado" };
   if (r.modo === "compensado")   return { cls: "s-comp", txt: `⚖ Compensado · +${r.costo_pct ?? "?"}%` };
   return { cls: "s-bad", txt: "✖ No compatible" };
@@ -1456,6 +1517,14 @@ function syncDetalleHTML(c) {
   if (!r) {
     return `<div class="sync-hero"><b>🔄 Sin verificar</b>
       Todavía no se hizo el handshake con este par. Se hace solo en el primer envío, o ahora con el botón.</div>`;
+  }
+  if (r.modo === "mismo_nodo") {
+    return `<div class="sync-hero s-bad"><b>⚠ Este canal apunta a este mismo nodo</b>
+      La URL <code>${esc(c.peer_url)}</code> responde este mismo equipo, así que lo que envíes por acá
+      vuelve a vos y no llega al otro nodo. Suele pasar cuando el par tiene
+      <code>OWN_URL=http://host.docker.internal:…</code> (el valor por defecto): esa URL solo sirve entre
+      contenedores de la misma máquina. Poné en el <code>.env</code> de <b>cada</b> equipo su propia IP de red,
+      por ejemplo <code>OWN_URL=http://192.168.1.21:8001</code>, reiniciá, y editá este canal con la IP real del otro nodo.</div>`;
   }
   const cols = syncColumnas(syncLocal, r.remoto);
   const cuando = `<div class="lora-status-row" style="margin-top:10px"><span class="lora-status-key">Verificado</span><span class="lora-status-val">${esc(fmtFecha(r.ts))}</span></div>`;
@@ -1523,6 +1592,7 @@ function conectarWS() {
   ws.onclose = () => { document.getElementById("wsDot").classList.remove("on"); setTimeout(conectarWS,3000); };
   ws.onmessage = e => {
     const {evento, data} = JSON.parse(e.data);
+    if (evento === "nodo_actualizado")    { nodeId=data.node_id; document.getElementById("nodeBadge").textContent=nodeId; pintarCanales(); }
     if (evento === "bienvenida")          { nodeId=data.node_id; document.getElementById("nodeBadge").textContent=nodeId; }
     if (evento === "nuevo_mensaje")       renderMsg(data);
     if (evento === "estado_actualizado")  renderMsg(data);
@@ -1536,7 +1606,7 @@ function esc(s) {
 }
 
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape") { cerrarModal(); cerrarEditModal(); cerrarMediosModal(); cerrarMedioForm(); cerrarSyncModal(); cerrarFirmwareModal(); closeSidebar(); }
+  if (e.key === "Escape") { cerrarNodoModal(); cerrarModal(); cerrarEditModal(); cerrarMediosModal(); cerrarMedioForm(); cerrarSyncModal(); cerrarFirmwareModal(); closeSidebar(); }
 });
 
 init();

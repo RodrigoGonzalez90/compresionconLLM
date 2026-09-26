@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from api.models import EnviarRequest, EstadoNodo, Mensaje, RecibirRequest, RecibirResponse
 from api.routes.ws import manager as ws_manager
+from api.peers import aprender_par, cabeceras_propias
 from api.routes.sync import asegurar_sync
 
 router = APIRouter(prefix="/api")
@@ -82,6 +83,7 @@ async def enviar(body: EnviarRequest, request: Request):
             async with httpx.AsyncClient(timeout=120.0) as client:
                 resp = await client.post(
                     f"{peer_url}/api/recibir",
+                    headers=cabeceras_propias(st),
                     json={
                         "bytes_hex":       paquete.datos.hex(),
                         "id_mensaje":      msg.id,
@@ -131,22 +133,17 @@ async def recibir(body: RecibirRequest, request: Request):
 
     decoded = st.lm_decoder.decodificar(datos)
 
-    # Auto-crear canal de vuelta si el emisor nos informó su URL
-    if body.nodo_origen_url:
-        canales = st.gestor_canales.listar()
-        urls_existentes = {c.peer_url for c in canales}
-        if body.nodo_origen_url.rstrip("/") not in urls_existentes:
-            await st.gestor_canales.crear(body.nodo_origen, body.nodo_origen_url)
-            await ws_manager.broadcast("canales_actualizados", {
-                "nuevo": {"nombre": body.nodo_origen, "peer_url": body.nodo_origen_url}
-            })
+    # Aprende la dirección real del emisor (y crea/actualiza el canal de vuelta)
+    await aprender_par(st, request, nombre=body.nodo_origen, declarada=body.nodo_origen_url)
 
     bytes_orig = len(decoded.texto_reconstruido.encode("utf-8"))
     bytes_rx   = len(datos)
     ratio      = round((1 - bytes_rx / bytes_orig) * 100, 1) if bytes_orig else 0.0
 
+    # Si el id ya existe aquí (el canal apunta a este mismo nodo), no pisar el saliente
+    extra = {} if st.store.obtener(body.id_mensaje) else {"id": body.id_mensaje}
     msg = Mensaje(
-        id=body.id_mensaje,
+        **extra,
         texto_original=decoded.texto_reconstruido,
         esqueleto=decoded.esqueleto,
         bytes_hex=body.bytes_hex,

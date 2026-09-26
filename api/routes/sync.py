@@ -12,6 +12,7 @@ import logging
 from typing import Optional
 
 import httpx
+from api.peers import aprender_par, cabeceras_propias
 from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter(prefix="/api/sync")
@@ -27,7 +28,9 @@ def _sync(request: Request):
 
 @router.get("/perfil")
 async def perfil(request: Request):
-    return _sync(request).perfil()
+    sync = _sync(request)
+    await aprender_par(request.app.state, request)
+    return sync.perfil()
 
 
 @router.get("/calibracion")
@@ -44,10 +47,13 @@ async def estado(request: Request):
 async def sincronizar(st, peer_url: str, forzar: bool = False) -> dict:
     """Handshake con un par HTTP. Lanza excepción si el par no responde."""
     sync = st.sync
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0, headers=cabeceras_propias(st)) as client:
         r = await client.get(f"{peer_url}/api/sync/perfil")
         r.raise_for_status()
         remoto = r.json()
+        canal = st.gestor_canales.por_url(peer_url)
+        if canal and remoto.get("instancia"):
+            st.gestor_canales.vincular(canal, remoto["instancia"])
 
         if not forzar:
             rec = sync.vigente(peer_url, remoto)

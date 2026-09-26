@@ -34,6 +34,8 @@ from api.routes import spellcheck as spellcheck_router
 from api.routes import archivo as archivo_router
 from api.routes import sync as sync_router
 from api.routes import medios as medios_router
+from api.routes import nodo as nodo_router
+from src import nodo as nodo_store
 from api.routes.ws import manager as ws_manager
 
 WEB_PATH = ROOT / "web"
@@ -41,7 +43,8 @@ WEB_PATH = ROOT / "web"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    node_id     = os.getenv("NODE_ID",     "nodo-1")
+    nombre_guardado = nodo_store.cargar()
+    node_id     = nombre_guardado or os.getenv("NODE_ID", "nodo-1")
     peer_url    = os.getenv("PEER_URL",    "").strip() or None
     own_url     = os.getenv("OWN_URL",     "").strip() or None
     backend     = os.getenv("BACKEND",     "ollama")
@@ -70,7 +73,7 @@ async def lifespan(app: FastAPI):
 
         def _on_recv(payload: bytes, src_addr: int, lora_msg_id: int) -> None:
             asyncio.create_task(_handle_lora_recv(payload, src_addr, lora_msg_id,
-                                                  lm_decoder, store, node_id, tr, medio))
+                                                  lm_decoder, store, app.state.node_id, tr, medio))
 
         def _on_ack(db_msg_id: str, crc_ok: bool) -> None:
             asyncio.create_task(_handle_lora_ack(db_msg_id, crc_ok, store))
@@ -83,6 +86,7 @@ async def lifespan(app: FastAPI):
     await medios.conectar_habilitados()
 
     app.state.node_id        = node_id
+    app.state.nodo_configurado = nombre_guardado is not None
     app.state.own_url        = own_url
     app.state.backend        = backend
     app.state.lm_encoder     = lm_encoder
@@ -173,6 +177,7 @@ app.include_router(spellcheck_router.router)
 app.include_router(archivo_router.router)
 app.include_router(sync_router.router)
 app.include_router(medios_router.router)
+app.include_router(nodo_router.router)
 
 if WEB_PATH.exists():
     app.mount("/static", StaticFiles(directory=str(WEB_PATH)), name="static")

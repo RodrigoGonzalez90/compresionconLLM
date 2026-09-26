@@ -34,6 +34,8 @@ class Canal:
         canal_id: str | None = None,
         tipo: str = "http",
         medio_id: str = "",
+        peer_instancia: str = "",
+        nombre_auto: bool = False,
     ):
         self.id        = canal_id or _uid()
         self.nombre    = nombre
@@ -41,6 +43,8 @@ class Canal:
         self.tipo      = tipo
         # Canales de radio: id del medio. El tipo heredado "lora" usa el medio "lora"
         self.medio_id  = medio_id or ("lora" if tipo == "lora" else "")
+        self.nombre_auto    = nombre_auto      # nombre tomado del par: se actualiza solo si él lo cambia
+        self.peer_instancia = peer_instancia   # ID estable del nodo par (sobrevive a cambios de IP)
         self.creado_en = _now()
         self.activo    = True
 
@@ -51,6 +55,8 @@ class Canal:
             "peer_url":  self.peer_url,
             "tipo":      self.tipo,
             "medio_id":  self.medio_id,
+            "peer_instancia": self.peer_instancia,
+            "nombre_auto": self.nombre_auto,
             "creado_en": self.creado_en.isoformat(),
             "activo":    self.activo,
         }
@@ -78,6 +84,8 @@ class GestorCanales:
                         canal_id=item["id"],
                         tipo=item.get("tipo", "http"),
                         medio_id=item.get("medio_id", ""),
+                        peer_instancia=item.get("peer_instancia", ""),
+                        nombre_auto=item.get("nombre_auto", False),
                     )
                     c.creado_en = datetime.fromisoformat(item["creado_en"])
                     c.activo    = item.get("activo", True)
@@ -134,6 +142,7 @@ class GestorCanales:
                 return None
             if nombre is not None:
                 c.nombre = nombre.strip()
+                c.nombre_auto = False   # lo renombró el usuario
             if peer_url is not None:
                 c.peer_url = peer_url.rstrip("/") if c.tipo == "http" else peer_url
             self._save()
@@ -146,6 +155,32 @@ class GestorCanales:
                 self._save()
                 return True
         return False
+
+    def por_instancia(self, iid: str) -> Optional[Canal]:
+        return next((c for c in self._canales.values()
+                     if c.tipo == "http" and iid and c.peer_instancia == iid), None)
+
+    def por_url(self, url: str) -> Optional[Canal]:
+        url = url.rstrip("/")
+        return next((c for c in self._canales.values()
+                     if c.tipo == "http" and c.peer_url.rstrip("/") == url), None)
+
+    def vincular(self, canal: Canal, iid: str) -> None:
+        if iid and canal.peer_instancia != iid:
+            canal.peer_instancia = iid
+            self._save()
+
+    def marcar_auto(self, canal: Canal) -> None:
+        canal.nombre_auto = True
+        self._save()
+
+    def renombrar_auto(self, canal: Canal, nombre: str) -> None:
+        canal.nombre = nombre
+        self._save()
+
+    def cambiar_url(self, canal: Canal, url: str) -> None:
+        canal.peer_url = url.rstrip("/")
+        self._save()
 
     def obtener(self, canal_id: str) -> Optional[Canal]:
         return self._canales.get(canal_id)
