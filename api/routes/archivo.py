@@ -25,7 +25,7 @@ MAX_UPLOAD = 1 * 1024 * 1024   # 1 MB — mucho mas que cualquier texto comprimi
 # ── Endpoint: exportar ────────────────────────────────────────────────────────
 
 class ExportarRequest(BaseModel):
-    texto:  str = Field(..., min_length=1, max_length=5000)
+    texto:  str = Field(..., min_length=1, max_length=1_000_000)
     nombre: str = Field(default="mensaje", max_length=64)
 
 

@@ -124,8 +124,13 @@ textarea:focus{border-color:var(--blue);}
 .btn-export{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;height:42px;flex-shrink:0;transition:border-color .2s,color .2s;}
 .btn-export:hover{border-color:var(--amber);color:var(--amber);}
 .btn-export:disabled{opacity:.4;cursor:not-allowed;}
-.composer-hint{font-size:10px;color:var(--muted);margin-top:5px;display:flex;gap:8px;flex-wrap:wrap;}
+.composer-hint{font-size:10px;color:var(--muted);margin-top:5px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
 .hint-sep{opacity:.3;}
+.char-counter{margin-left:auto;font-family:var(--font);font-size:10px;color:var(--muted);white-space:nowrap;}
+.char-counter.warn{color:var(--amber);}
+.char-counter.over{color:var(--red);font-weight:700;}
+.char-limit-input{background:none;border:none;border-bottom:1px solid var(--border);color:var(--muted);font-family:var(--font);font-size:10px;width:50px;text-align:right;outline:none;cursor:text;}
+.char-limit-input:focus{border-bottom-color:var(--blue);color:var(--text);}
 .spell-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;min-height:0;}
 .spell-chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid #f59e0b;border-radius:10px;padding:2px 8px 2px 10px;font-size:11px;color:var(--text);animation:chipIn .15s ease;}
 @keyframes chipIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
@@ -288,6 +293,11 @@ textarea:focus{border-color:var(--blue);}
         <span class="hint-sep">|</span>
         <span id="hintEnc">Encoding: lossless</span>
         <span class="hint-keyboard"><span class="hint-sep">|</span>Enter envía · Shift+Enter nueva línea</span>
+        <span class="char-counter" id="charCounter">
+          <span id="charCount">0</span> /
+          <input class="char-limit-input" id="charLimit" type="number" min="10" title="Límite de caracteres (editable)"
+            onchange="setMaxChars(+this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+        </span>
       </div>
     </div>
   </div>
@@ -487,6 +497,34 @@ textarea:focus{border-color:var(--blue);}
 let nodeId = "", canalActivo = null, ws = null, tipoCanal = "http";
 let canales = [], enviando = false;
 
+// ── Límite de caracteres (configurable, persiste en localStorage) ───────────
+const MAX_CHARS_DEFAULT = 50_000;
+let maxChars = (() => {
+  try { return parseInt(localStorage.getItem("meshstatic_max_chars")) || MAX_CHARS_DEFAULT; }
+  catch { return MAX_CHARS_DEFAULT; }
+})();
+
+function setMaxChars(val) {
+  if (!val || val < 10) val = MAX_CHARS_DEFAULT;
+  maxChars = val;
+  try { localStorage.setItem("meshstatic_max_chars", val); } catch {}
+  const inp = document.getElementById("charLimit");
+  if (inp) inp.value = val;
+  _updateCharCounter(document.getElementById("txtMsg")?.value?.length || 0);
+  _spellBtnReady();
+}
+
+function _updateCharCounter(len) {
+  const el  = document.getElementById("charCounter");
+  const cnt = document.getElementById("charCount");
+  const inp = document.getElementById("charLimit");
+  if (!el || !cnt) return;
+  cnt.textContent = len;
+  if (inp) inp.value = maxChars;
+  el.className = "char-counter" +
+    (len > maxChars ? " over" : len > maxChars * 0.85 ? " warn" : "");
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────
 async function init() {
   const box = document.getElementById("messages");
@@ -683,8 +721,9 @@ function _spellBtnReady() {
   if (btn.classList.contains("sending")) return;
   const ta = document.getElementById("txtMsg");
   const hasText = !!ta.value.trim();
-  btn.disabled    = _spell.pending || !hasText;
-  btnExp.disabled = !hasText;
+  const overLimit = ta.value.length > maxChars;
+  btn.disabled    = _spell.pending || !hasText || overLimit;
+  btnExp.disabled = !hasText || overLimit;
   if (_spell.pending) {
     btn.textContent = "Revisando…";
   } else if (!btn.disabled) {
@@ -782,6 +821,8 @@ function onTxtInput(ta) {
   ta.style.height = "auto";
   ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
 
+  _updateCharCounter(ta.value.length);
+
   // Limpiar chips viejos y reiniciar timer de spell check
   _spell.chips = [];
   _spellRenderChips();
@@ -847,7 +888,15 @@ async function exportarMsh() {
     if (!res.ok) {
       ta.value = savedTxt;
       onTxtInput(ta);
-      showToast("Error al exportar", "err");
+      let msg = `Error ${res.status} al exportar`;
+      try {
+        const err = await res.json();
+        if (Array.isArray(err.detail))
+          msg = err.detail.map(d => d.msg).join(" · ");
+        else if (err.detail)
+          msg = String(err.detail);
+      } catch {}
+      showToast(msg, "err");
       return;
     }
 
@@ -909,7 +958,17 @@ async function importarMsh(input) {
 
   try {
     const res = await fetch("/api/importar", { method: "POST", body: fd });
-    if (!res.ok) { showToast(`Error al importar: ${res.status}`, "err"); return; }
+    if (!res.ok) {
+      let msg = `Error ${res.status} al importar`;
+      try {
+        const err = await res.json();
+        if (Array.isArray(err.detail))
+          msg = err.detail.map(d => d.msg).join(" · ");
+        else if (err.detail)
+          msg = String(err.detail);
+      } catch {}
+      showToast(msg, "err"); return;
+    }
     const d = await res.json();
 
     // Mostrar el mensaje decodificado como una burbuja entrante
@@ -1181,6 +1240,7 @@ document.addEventListener("keydown", e => {
 });
 
 init();
+_updateCharCounter(0);   // inicializar contador y mostrar límite al cargar
 </script>
 </body>
 </html>
